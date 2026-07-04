@@ -28,13 +28,20 @@ async function handle(msg: BgRequest): Promise<BgResponse> {
           error: `${provider.label} não suporta analisar imagens. Use OpenAI, Gemini, Anthropic ou um modelo com visão no OpenRouter.`,
         };
       }
+      const gen = config.generation;
+      // Aplica as regras personalizadas do usuario como mais um system.
+      const messages = gen.rules?.trim()
+        ? [{ role: 'system' as const, content: gen.rules.trim() }, ...msg.messages]
+        : msg.messages;
       const { text } = await provider.chat(
         {
           model,
-          messages: msg.messages,
-          maxTokens: msg.maxTokens ?? 1024,
-          temperature: msg.temperature,
+          messages,
+          // Limites vem da config (evita respostas cortadas); a acao pode pedir mais.
+          maxTokens: Math.max(msg.maxTokens ?? 0, gen.maxTokens),
+          temperature: msg.temperature ?? gen.temperature,
           images: msg.images,
+          search: msg.search,
         },
         creds,
       );

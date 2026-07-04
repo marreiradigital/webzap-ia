@@ -5,7 +5,7 @@ import type { ProviderId } from '@/src/providers/types';
 // As chaves de API ficam AQUI (storage.local), nunca no content script da pagina.
 
 /** Tarefas de IA que podem mapear provider + modelo independentes. */
-export type TaskKind = 'summarize' | 'explain' | 'suggest' | 'transcribe';
+export type TaskKind = 'summarize' | 'explain' | 'suggest' | 'transcribe' | 'search';
 
 export interface TaskModel {
   providerId: ProviderId;
@@ -31,6 +31,15 @@ export interface FeatureToggles {
   suggest: boolean;
 }
 
+export interface GenerationSettings {
+  /** Limite de tokens da resposta (evita respostas cortadas). */
+  maxTokens: number;
+  /** Criatividade (0 = objetivo, 1 = criativo). */
+  temperature: number;
+  /** Regras/instrucoes personalizadas, aplicadas como system em toda geracao. */
+  rules: string;
+}
+
 export interface WebzapConfig {
   providers: Partial<Record<ProviderId, ProviderConfig>>;
   /** provider + modelo por tarefa. Ausente => usa o primeiro provider apto. */
@@ -38,6 +47,7 @@ export interface WebzapConfig {
   /** Idioma preferido das respostas/transcricoes. */
   language: string;
   features: FeatureToggles;
+  generation: GenerationSettings;
 }
 
 export const DEFAULT_CONFIG: WebzapConfig = {
@@ -50,6 +60,11 @@ export const DEFAULT_CONFIG: WebzapConfig = {
     perMessage: true,
     transcribe: true,
     suggest: true,
+  },
+  generation: {
+    maxTokens: 2048,
+    temperature: 0.6,
+    rules: '',
   },
 };
 
@@ -65,6 +80,7 @@ export async function getConfig(): Promise<WebzapConfig> {
     ...DEFAULT_CONFIG,
     ...raw,
     features: { ...DEFAULT_CONFIG.features, ...raw?.features },
+    generation: { ...DEFAULT_CONFIG.generation, ...raw?.generation },
     providers: { ...raw?.providers },
     tasks: { ...raw?.tasks },
   };

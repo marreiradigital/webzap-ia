@@ -93,6 +93,44 @@ export function buildDescribeImagePrompt(
   ];
 }
 
+export function buildSearchConversationPrompt(ctx: ChatContext): ChatMessage[] {
+  const system = `Voce pesquisa na internet e responde em portugues do Brasil, citando as fontes (com links quando possivel). Use a conversa abaixo apenas como contexto do que interessa ao usuario. ${LANG_INSTRUCTION}`;
+  const user = `Conversa (contexto):
+"""
+${renderTranscript(ctx.messages, 40)}
+"""
+
+Pesquise online informacoes atualizadas e relevantes sobre o assunto desta conversa e responda com fontes.`;
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ];
+}
+
+export function buildSearchMessagePrompt(ctx: ChatContext, target: WaMessage): ChatMessage[] {
+  const system = `Voce pesquisa na internet e responde em portugues do Brasil, citando as fontes. ${LANG_INSTRUCTION}`;
+  const assunto = target.text || target.caption || '(o conteudo da mensagem)';
+  const user = `Pesquise online e explique, com informacoes atualizadas e fontes, sobre: "${assunto}".`;
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ];
+}
+
+/** Semente de chat para conversar sobre um audio ja transcrito. */
+export function buildTranscriptionSeed(text: string): ChatMessage[] {
+  return [
+    {
+      role: 'system',
+      content: `Voce ajuda o usuario a entender e trabalhar com um audio transcrito do WhatsApp. Transcricao do audio:
+"""
+${text}
+"""
+${LANG_INSTRUCTION}`,
+    },
+  ];
+}
+
 export function buildSuggestPrompt(ctx: ChatContext): ChatMessage[] {
   const escopo = ctx.isGroup ? `no grupo "${ctx.chatName}"` : `com "${ctx.chatName}"`;
   const system = `Voce sugere respostas para o usuario enviar no WhatsApp. Gere de 2 a 3 opcoes curtas, em tom natural e adequado ao contexto, como se fosse o proprio usuario respondendo. ${LANG_INSTRUCTION} Retorne apenas as opcoes, uma por linha, sem numeracao nem aspas.`;

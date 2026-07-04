@@ -14,6 +14,8 @@ export type BgRequest =
       temperature?: number;
       /** Imagens anexadas (para "descrever imagem"); exige provider com vision. */
       images?: { base64: string; mimeType: string }[];
+      /** Habilita busca na web (exige provider com 'search'). */
+      search?: boolean;
     }
   | {
       kind: 'transcribe';

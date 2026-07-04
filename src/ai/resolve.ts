@@ -20,6 +20,7 @@ const CAP_BY_TASK: Record<TaskKind, Capability> = {
   explain: 'chat',
   suggest: 'chat',
   transcribe: 'transcribe',
+  search: 'search',
 };
 
 export function resolveTask(config: WebzapConfig, task: TaskKind): ResolvedTask {
@@ -74,6 +75,9 @@ function providerModel(
 function humanizeNoProvider(task: TaskKind, cap: Capability): string {
   if (cap === 'transcribe') {
     return 'Nenhum provedor de transcrição configurado. Configure OpenAI ou Gemini nas Opções da extensão.';
+  }
+  if (cap === 'search') {
+    return 'Nenhum provedor de busca online configurado. Configure Anthropic ou Gemini nas Opções da extensão.';
   }
   return `Nenhum provedor de IA configurado para "${task}". Adicione uma chave de API nas Opções da extensão.`;
 }

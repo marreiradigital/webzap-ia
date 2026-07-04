@@ -3,7 +3,7 @@
 
 export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'openrouter';
 
-export type Capability = 'chat' | 'transcribe' | 'vision' | 'embeddings';
+export type Capability = 'chat' | 'transcribe' | 'vision' | 'embeddings' | 'search';
 
 export type ChatRole = 'system' | 'user' | 'assistant';
 
@@ -24,6 +24,8 @@ export interface ChatRequest {
   maxTokens?: number;
   /** Imagens anexadas a ultima mensagem do usuario (para providers com 'vision'). */
   images?: ImageInput[];
+  /** Habilita busca na web (para providers com 'search'). */
+  search?: boolean;
 }
 
 export interface ChatResult {

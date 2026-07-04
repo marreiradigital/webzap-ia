@@ -18,7 +18,7 @@ interface GeminiResponse {
 export const gemini: ProviderModule = {
   id: 'gemini',
   label: 'Google Gemini',
-  capabilities: ['chat', 'transcribe', 'vision'],
+  capabilities: ['chat', 'transcribe', 'vision', 'search'],
   defaultModels: {
     chat: 'gemini-2.5-flash',
     transcribe: 'gemini-2.5-flash',
@@ -54,6 +54,8 @@ export const gemini: ProviderModule = {
       {
         ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
         contents,
+        // Grounding com Google Search quando a busca online esta habilitada.
+        ...(req.search ? { tools: [{ google_search: {} }] } : {}),
         generationConfig: {
           temperature: req.temperature,
           maxOutputTokens: req.maxTokens,

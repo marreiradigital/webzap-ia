@@ -17,7 +17,7 @@ interface AnthropicResponse {
 export const anthropic: ProviderModule = {
   id: 'anthropic',
   label: 'Anthropic (Claude)',
-  capabilities: ['chat', 'vision'],
+  capabilities: ['chat', 'vision', 'search'],
   defaultModels: {
     chat: 'claude-sonnet-5',
   },
@@ -69,6 +69,10 @@ export const anthropic: ProviderModule = {
         max_tokens: req.maxTokens ?? 1024,
         temperature: req.temperature,
         ...(system ? { system } : {}),
+        // Busca web e uma server tool: a Anthropic executa e retorna o texto final.
+        ...(req.search
+          ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }] }
+          : {}),
         messages,
       },
       signal,
