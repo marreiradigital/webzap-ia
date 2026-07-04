@@ -1,6 +1,6 @@
 # SDD — Persona & Memória
 
-> Status: **implementado** (entrevista + memórias + injeção no sugerir). Auto-treino automático ainda pendente.
+> Status: **implementado** — entrevista, memórias, injeção no sugerir e **auto-treino**.
 
 ## Objetivo
 
@@ -21,10 +21,13 @@ Dar à IA contexto persistente sobre o usuário — quem é, preferências, como
 
 No background, para a tarefa `suggest` (e futura `autoReply`), `selectRelevant(memorias, {contact, query})` pontua por tipo + match de contato + keyword + recência e `personaSystemPrompt` monta o "perfil do usuário" injetado como `system` (top-N, prompt enxuto). Content passa `chatName` + `usePersona: true`. Embeddings ficam para depois.
 
-## Pendente (próximo)
+## Auto-treinamento
 
-- **Auto-treinamento** (`auto-train.ts`): extrair estilo/fatos das mensagens do próprio usuário, opt-in, com aviso de privacidade.
-- Injetar persona também na **resposta automática** (ver [`auto-reply.md`](./auto-reply.md)).
+- **Manual**: FAB → "Aprender desta conversa" (`actions.learnFromChat`) extrai memórias das mensagens do próprio usuário (`buildTrainingExtraction`) e salva via `memoryAdd` (background, origem `auto-train`, deduplicado).
+- **Automático** (opt-in, `config.autoTrain`, padrão off): ao abrir uma conversa, aprende **uma vez por conversa** (throttle por sessão). Aviso de privacidade nas Opções (envia trechos ao provedor).
+- O content não acessa o Dexie (origem diferente): a escrita passa pelo background via `memoryAdd`.
+
+A persona já é injetada na **resposta automática** (usa a tarefa `suggest` com `usePersona`).
 
 ## Critérios de aceite
 

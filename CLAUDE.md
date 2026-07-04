@@ -65,4 +65,5 @@ src/messaging.ts            -> protocolo tipado content <-> background
 ## Roadmap
 
 - **Fase 1 (feito):** resumir, explicar, transcrever, descrever imagem, sugerir, pesquisar online, painel-chat por conversa, streaming, markdown, config de geração, multi-provedor.
-- **Fase 2 (em andamento):** Persona & Memória (entrevista + injeção no sugerir — **feito**; auto-treino pendente); **resposta automática** 3 modos por conversa (`src/wa/auto-reply.ts` + `config.autoReply` — **feito**; direcionamento em grupo é heurístico). Specs em [`.claude/SDD/`](./.claude/SDD/).
+- **Fase 2 (feito):** Persona & Memória (entrevista + injeção no sugerir + **auto-treino** manual/opt-in via `memoryAdd`); **resposta automática** 3 modos por conversa (`src/wa/auto-reply.ts` + `config.autoReply`; direcionamento em grupo é heurístico por `@`). Specs em [`.claude/SDD/`](./.claude/SDD/).
+- **Próximos refinos:** direcionamento em grupo mais preciso, embeddings na recuperação, indicador de auto-envio ativo.
