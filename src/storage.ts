@@ -57,6 +57,8 @@ export interface WebzapConfig {
   features: FeatureToggles;
   generation: GenerationSettings;
   autoReply: AutoReplySettings;
+  /** Auto-treinamento: aprender memorias das conversas automaticamente (opt-in). */
+  autoTrain: boolean;
 }
 
 export const DEFAULT_CONFIG: WebzapConfig = {
@@ -76,6 +78,7 @@ export const DEFAULT_CONFIG: WebzapConfig = {
     rules: '',
   },
   autoReply: { byChat: {} },
+  autoTrain: false,
 };
 
 export const configItem = storage.defineItem<WebzapConfig>('local:webzap-config', {
@@ -92,6 +95,7 @@ export async function getConfig(): Promise<WebzapConfig> {
     features: { ...DEFAULT_CONFIG.features, ...raw?.features },
     generation: { ...DEFAULT_CONFIG.generation, ...raw?.generation },
     autoReply: { byChat: { ...raw?.autoReply?.byChat } },
+    autoTrain: raw?.autoTrain ?? false,
     providers: { ...raw?.providers },
     tasks: { ...raw?.tasks },
   };

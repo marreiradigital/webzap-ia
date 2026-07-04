@@ -7,6 +7,7 @@ import {
   prepSearchMessage,
   suggest,
   transcribe,
+  learnFromChat,
   followupInput,
   type Prep,
   type Session,
@@ -63,10 +64,12 @@ export default function App() {
   const [autoByChat, setAutoByChat] = useState<Record<string, AutoReplyMode>>({});
   const [autoSuggestion, setAutoSuggestion] = useState<string | null>(null);
   const [warnAutosend, setWarnAutosend] = useState(false);
+  const [autoTrain, setAutoTrain] = useState(false);
   const chatKeyRef = useRef('');
   const genTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRef = useRef(autoByChat);
   const enabledRef = useRef(features.enabled);
+  const learnedRef = useRef<Set<string>>(new Set());
   autoRef.current = autoByChat;
   enabledRef.current = features.enabled;
 
@@ -76,11 +79,13 @@ export default function App() {
       setFeatures(c.features);
       setGeneration(c.generation);
       setAutoByChat(c.autoReply.byChat);
+      setAutoTrain(c.autoTrain);
     });
     return watchConfig((c) => {
       setFeatures(c.features);
       setGeneration(c.generation);
       setAutoByChat(c.autoReply.byChat);
+      setAutoTrain(c.autoTrain);
     });
   }, []);
 
@@ -122,6 +127,22 @@ export default function App() {
       (info) => void onIncoming(info),
     );
   }, [features.enabled]);
+
+  // Auto-treino: aprende uma vez por conversa ao abrir (quando ligado).
+  useEffect(() => {
+    if (!features.enabled || !autoTrain || !chatKey) return;
+    if (learnedRef.current.has(chatKey)) return;
+    learnedRef.current.add(chatKey);
+    const t = window.setTimeout(() => {
+      learnFromChat()
+        .then((n) => {
+          if (n) flash(`Aprendi ${n} memória(s) desta conversa.`);
+        })
+        .catch(() => {});
+    }, 4000);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatKey, autoTrain, features.enabled]);
 
   // Esc fecha menus.
   useEffect(() => {
@@ -324,6 +345,14 @@ export default function App() {
     setFabOpen(false);
   }
 
+  function runLearn() {
+    setFabOpen(false);
+    flash('Aprendendo desta conversa…');
+    learnFromChat()
+      .then((n) => flash(n ? `Aprendi ${n} memória(s).` : 'Nada novo para aprender.'))
+      .catch((err) => flash((err as Error).message));
+  }
+
   function runSummary(length: SummaryLength) {
     runStream(() => prepSummary(length), 'Resumo');
   }
@@ -422,6 +451,9 @@ export default function App() {
             </button>
           ))}
 
+          <button className="wz-menu-item" onClick={runLearn}>
+            📚 Aprender desta conversa
+          </button>
           <button
             className="wz-menu-item"
             onClick={() => {

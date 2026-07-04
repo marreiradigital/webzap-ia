@@ -32,7 +32,11 @@ export type BgRequest =
     }
   | { kind: 'testProvider'; providerId: ProviderId }
   | { kind: 'openOptions' }
-  | { kind: 'openMemory' };
+  | { kind: 'openMemory' }
+  | {
+      kind: 'memoryAdd';
+      memories: { type: 'persona' | 'preference' | 'style' | 'contact'; content: string; contact?: string }[];
+    };
 
 export type BgResponse =
   | { ok: true; text: string }

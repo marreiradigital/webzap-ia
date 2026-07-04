@@ -3,7 +3,7 @@ import { getConfig, type WebzapConfig } from '@/src/storage';
 import { resolveTask } from '@/src/ai/resolve';
 import { getProvider } from '@/src/providers/registry';
 import { ProviderError, type ChatRequest, type ProviderCredentials, type ProviderModule } from '@/src/providers/types';
-import { activeMemories } from '@/src/memory/db';
+import { activeMemories, addMemory, memoryExists } from '@/src/memory/db';
 import { selectRelevant, personaSystemPrompt } from '@/src/memory/retriever';
 import type { BgRequest, BgResponse } from '@/src/messaging';
 
@@ -150,6 +150,18 @@ async function handle(msg: BgRequest): Promise<BgResponse> {
     case 'openMemory': {
       await browser.tabs.create({ url: browser.runtime.getURL('/memory.html') });
       return { ok: true, text: '' };
+    }
+
+    case 'memoryAdd': {
+      // Salva memorias (auto-treino) deduplicando por conteudo.
+      let saved = 0;
+      for (const m of msg.memories) {
+        if (m.content && !(await memoryExists(m.content))) {
+          await addMemory({ type: m.type, content: m.content, contact: m.contact, origin: 'auto-train' });
+          saved++;
+        }
+      }
+      return { ok: true, text: String(saved) };
     }
 
     default:

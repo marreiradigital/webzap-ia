@@ -9,8 +9,10 @@ import {
   buildSearchConversationPrompt,
   buildSearchMessagePrompt,
   buildTranscriptionSeed,
+  buildTrainingExtraction,
   type SummaryLength,
 } from '@/src/ai/prompts';
+import { parseMemories } from '@/src/memory/interviewer';
 import { callBackground, type StreamChatInput } from '@/src/messaging';
 import type { ChatMessage, ImageInput } from '@/src/providers/types';
 import type { ChatContext } from '@/src/wa/types';
@@ -153,6 +155,23 @@ export async function suggest(): Promise<Session> {
     .slice(0, 3);
   thread.push({ role: 'assistant', content: res.text });
   return { title: 'Sugestões de resposta', task: 'suggest', thread, display: [], suggestions, chatName: ctx.chatName };
+}
+
+/** Aprende memorias das mensagens do usuario na conversa visivel (auto-treino). */
+export async function learnFromChat(): Promise<number> {
+  const ctx = requireChat();
+  const res = await callBackground({
+    kind: 'chat',
+    task: 'explain',
+    messages: buildTrainingExtraction(ctx),
+    raw: true,
+  });
+  if (!res.ok) throw new Error(res.error);
+  const mems = parseMemories(res.text);
+  if (!mems.length) return 0;
+  const save = await callBackground({ kind: 'memoryAdd', memories: mems });
+  if (!save.ok) throw new Error(save.error);
+  return Number(save.text) || 0;
 }
 
 export async function transcribe(row: HTMLElement): Promise<Session> {

@@ -214,6 +214,22 @@ export default function OptionsApp() {
           </div>
         </section>
 
+        {/* Aprendizado / auto-treino */}
+        <section className="mb-8">
+          <h2 className="mb-1 text-lg font-semibold">Aprendizado (memória)</h2>
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+            <span>
+              <span className="block text-sm font-medium">Auto-treinamento</span>
+              <span className="block text-xs text-neutral-500 dark:text-neutral-400">
+                Aprende memórias automaticamente ao abrir conversas (uma vez por conversa). Envia
+                trechos das conversas ao provedor de IA configurado. Desligado por padrão. Gerencie o
+                que foi aprendido em <strong>Persona &amp; Memória</strong>.
+              </span>
+            </span>
+            <Switch checked={cfg.autoTrain} onChange={(v) => patch((c) => ({ ...c, autoTrain: v }))} />
+          </label>
+        </section>
+
         {/* Idioma */}
         <section className="mb-10">
           <h2 className="mb-3 text-lg font-semibold">Idioma das respostas</h2>

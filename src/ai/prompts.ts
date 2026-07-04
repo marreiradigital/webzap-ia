@@ -117,6 +117,19 @@ export function buildSearchMessagePrompt(ctx: ChatContext, target: WaMessage): C
   ];
 }
 
+/** Extrai memorias duraveis das mensagens do PROPRIO usuario (auto-treino). */
+export function buildTrainingExtraction(ctx: ChatContext): ChatMessage[] {
+  const system = `A partir das mensagens do proprio usuario (marcadas como "Eu") na conversa, extraia fatos duraveis sobre ele, seu estilo de escrita e notas uteis sobre o contato/grupo, para memoria de longo prazo. Responda APENAS com um array JSON valido, sem texto fora do JSON. Cada item: {"type":"persona|preference|style|contact","content":"frase curta","contact":"nome do chat quando for 'contact'"}. Nao invente. Se nao houver nada duravel, responda [].`;
+  const user = `Conversa em "${ctx.chatName}":
+"""
+${renderTranscript(ctx.messages, 60)}
+"""`;
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ];
+}
+
 /** Semente de chat para conversar sobre um audio ja transcrito. */
 export function buildTranscriptionSeed(text: string): ChatMessage[] {
   return [
