@@ -3,6 +3,44 @@ import { ProviderError, type ProviderId } from './types';
 // Helper unico de HTTP para os providers. Roda no service worker (background),
 // onde host_permissions cobrem os dominios e nao ha bloqueio de CORS.
 
+/** Timeout padrao: uma chamada pendurada nao pode deixar a UI em "Gerando…" para sempre. */
+const JSON_TIMEOUT_MS = 120_000;
+const STREAM_TIMEOUT_MS = 300_000;
+
+function withTimeout(signal: AbortSignal | undefined, ms: number): AbortSignal | undefined {
+  try {
+    const t = AbortSignal.timeout(ms);
+    return signal ? AbortSignal.any([signal, t]) : t;
+  } catch {
+    // Navegador sem AbortSignal.timeout/any: segue sem timeout.
+    return signal;
+  }
+}
+
+async function safeFetch(
+  providerId: ProviderId,
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, signal: withTimeout(init.signal ?? undefined, timeoutMs) });
+  } catch (err) {
+    const name = (err as Error)?.name;
+    if (name === 'AbortError') throw err;
+    if (name === 'TimeoutError') {
+      throw new ProviderError(
+        `O ${providerId} demorou demais para responder (tempo esgotado). Tente novamente.`,
+        providerId,
+      );
+    }
+    throw new ProviderError(
+      `Falha de rede ao acessar ${providerId}: ${(err as Error).message}`,
+      providerId,
+    );
+  }
+}
+
 export async function postJson<T>(
   providerId: ProviderId,
   url: string,
@@ -10,21 +48,17 @@ export async function postJson<T>(
   body: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(url, {
+  const res = await safeFetch(
+    providerId,
+    url,
+    {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...headers },
       body: JSON.stringify(body),
       signal,
-    });
-  } catch (err) {
-    if ((err as Error)?.name === 'AbortError') throw err;
-    throw new ProviderError(
-      `Falha de rede ao acessar ${providerId}: ${(err as Error).message}`,
-      providerId,
-    );
-  }
+    },
+    JSON_TIMEOUT_MS,
+  );
   return parseResponse<T>(providerId, res);
 }
 
@@ -35,16 +69,7 @@ export async function postForm<T>(
   form: FormData,
   signal?: AbortSignal,
 ): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(url, { method: 'POST', headers, body: form, signal });
-  } catch (err) {
-    if ((err as Error)?.name === 'AbortError') throw err;
-    throw new ProviderError(
-      `Falha de rede ao acessar ${providerId}: ${(err as Error).message}`,
-      providerId,
-    );
-  }
+  const res = await safeFetch(providerId, url, { method: 'POST', headers, body: form, signal }, JSON_TIMEOUT_MS);
   return parseResponse<T>(providerId, res);
 }
 
@@ -56,21 +81,17 @@ export async function postForStream(
   body: unknown,
   signal?: AbortSignal,
 ): Promise<Response> {
-  let res: Response;
-  try {
-    res = await fetch(url, {
+  const res = await safeFetch(
+    providerId,
+    url,
+    {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...headers },
       body: JSON.stringify(body),
       signal,
-    });
-  } catch (err) {
-    if ((err as Error)?.name === 'AbortError') throw err;
-    throw new ProviderError(
-      `Falha de rede ao acessar ${providerId}: ${(err as Error).message}`,
-      providerId,
-    );
-  }
+    },
+    STREAM_TIMEOUT_MS,
+  );
   if (!res.ok) {
     const raw = await res.text();
     throw new ProviderError(humanizeError(providerId, res.status, raw), providerId, res.status);
