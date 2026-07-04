@@ -1,6 +1,11 @@
-// Injeta um botao de IA em CADA bolha de mensagem (light DOM), sempre visivel e
-// colado na mensagem. A bolha e detectada pelo ESTILO REAL (fundo + cantos
-// arredondados), o que independe de classes/atributos que o WhatsApp muda.
+import { directionFromDataId } from './message-nodes';
+
+// Injeta um botao de IA em CADA bolha de mensagem (light DOM), colado na mensagem.
+// A bolha e detectada pelo ESTILO REAL (fundo + cantos arredondados), o que
+// independe de classes/atributos que o WhatsApp muda.
+// - Visivel apenas no hover da LINHA (CSS puro, custo zero de JS) para nao poluir.
+// - Posicionado FORA do canto da bolha, no lado oposto ao menuzinho nativo do
+//   WhatsApp (que fica por cima e roubava o clique quando o botao ficava dentro).
 // Ao clicar, chama o handler com a bolha e a posicao do botao.
 
 const STYLE_ID = 'wz-injected-styles';
@@ -14,14 +19,23 @@ function ensureStyles() {
   style.id = STYLE_ID;
   style.textContent = `
     .${BTN_CLASS} {
-      position: absolute; top: 3px; right: 3px;
+      position: absolute; top: -6px;
       width: 22px; height: 22px; border-radius: 50%;
       display: inline-flex; align-items: center; justify-content: center;
       border: 1px solid rgba(0,0,0,.15); background: #ffffff; color: #1da851;
-      cursor: pointer; opacity: .68; transition: opacity .12s ease, transform .12s ease;
-      box-shadow: 0 2px 8px rgba(0,0,0,.25); z-index: 60; padding: 0; margin: 0;
+      cursor: pointer; padding: 0; margin: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25); z-index: 500;
+      opacity: 0; pointer-events: none;
+      transition: opacity .12s ease, transform .12s ease;
     }
-    .${BTN_CLASS}:hover { opacity: 1; transform: scale(1.1); }
+    /* So aparece ao passar o mouse na linha da mensagem (nao polui a conversa). */
+    [role="row"]:hover .${BTN_CLASS}, .${BTN_CLASS}:hover, .${BTN_CLASS}:focus-visible {
+      opacity: 1; pointer-events: auto;
+    }
+    .${BTN_CLASS}:hover { transform: scale(1.1); }
+    /* Fora do canto da bolha, no lado LIVRE (oposto ao menu nativo do WhatsApp). */
+    .${BTN_CLASS}.wz-out { left: -12px; }
+    .${BTN_CLASS}.wz-in { right: -12px; }
     @media (prefers-color-scheme: dark) {
       .${BTN_CLASS} { background: #2a3942; color: #25d366; border-color: rgba(255,255,255,.16); }
     }
@@ -31,7 +45,14 @@ function ensureStyles() {
 
 function isBubbleLike(el: HTMLElement, rowWidth: number): boolean {
   const s = getComputedStyle(el);
-  const radius = parseFloat(s.borderTopLeftRadius) || 0;
+  // MAIOR raio entre os 4 cantos: bolha com "rabinho" tem UM canto reto (raio 0)
+  // — olhar so o top-left descartava todas as mensagens recebidas.
+  const radius = Math.max(
+    parseFloat(s.borderTopLeftRadius) || 0,
+    parseFloat(s.borderTopRightRadius) || 0,
+    parseFloat(s.borderBottomLeftRadius) || 0,
+    parseFloat(s.borderBottomRightRadius) || 0,
+  );
   if (radius < 6) return false;
   const bg = s.backgroundColor;
   if (!bg || bg === 'transparent' || bg.startsWith('rgba(0, 0, 0, 0')) return false;
@@ -80,9 +101,10 @@ function processBubbles(handler: Handler) {
     const bubble = findBubble(row);
     if (!bubble) return;
     if (getComputedStyle(bubble).position === 'static') bubble.style.position = 'relative';
+    const direction = directionFromDataId(bubble) ?? 'in';
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = BTN_CLASS;
+    btn.className = `${BTN_CLASS} ${direction === 'out' ? 'wz-out' : 'wz-in'}`;
     btn.title = 'Ações de IA (WebZap)';
     btn.setAttribute('aria-label', 'Ações de IA');
     btn.innerHTML = STARS_SVG;
