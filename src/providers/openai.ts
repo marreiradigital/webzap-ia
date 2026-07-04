@@ -1,6 +1,7 @@
 import { postForm, postJson } from './http';
 import { openAiCompatibleChat, openAiCompatibleChatStream } from './openai-compatible';
-import { base64ToBlob } from '@/src/lib/binary';
+import { base64ToBlob, arrayBufferToBase64 } from '@/src/lib/binary';
+import { ProviderError } from './types';
 import type {
   ChatRequest,
   ChatResult,
@@ -20,11 +21,12 @@ interface OpenAiTranscription {
 export const openai: ProviderModule = {
   id: 'openai',
   label: 'OpenAI',
-  capabilities: ['chat', 'transcribe', 'vision', 'embeddings'],
+  capabilities: ['chat', 'transcribe', 'vision', 'embeddings', 'tts'],
   defaultModels: {
     chat: 'gpt-4o',
     transcribe: 'gpt-4o-transcribe',
     embed: 'text-embedding-3-small',
+    tts: 'gpt-4o-mini-tts',
   },
   suggestedModels: {
     chat: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'o4-mini'],
@@ -39,6 +41,25 @@ export const openai: ProviderModule = {
   chatStream(req, creds, onDelta, signal) {
     const base = creds.baseUrl?.replace(/\/$/, '') ?? DEFAULT_BASE;
     return openAiCompatibleChatStream('openai', base, req, creds, {}, onDelta, signal);
+  },
+
+  async speak(text, model, creds, signal): Promise<{ base64: string; mimeType: string }> {
+    const base = creds.baseUrl?.replace(/\/$/, '') ?? DEFAULT_BASE;
+    const res = await fetch(`${base}/audio/speech`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${creds.apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ model, voice: 'alloy', input: text, response_format: 'mp3' }),
+      signal,
+    });
+    if (!res.ok) {
+      throw new ProviderError(
+        `Erro do OpenAI ao gerar audio (HTTP ${res.status}): ${(await res.text()).slice(0, 200)}`,
+        'openai',
+        res.status,
+      );
+    }
+    const buf = await res.arrayBuffer();
+    return { base64: arrayBufferToBase64(buf), mimeType: 'audio/mpeg' };
   },
 
   async embed(texts, model, creds, signal): Promise<number[][]> {

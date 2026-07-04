@@ -6,6 +6,7 @@ import {
   buildExplainPrompt,
   buildSuggestPrompt,
   buildDescribeImagePrompt,
+  buildTranslatePrompt,
   buildSearchConversationPrompt,
   buildSearchMessagePrompt,
   buildTrainingExtraction,
@@ -93,6 +94,15 @@ export async function prepDescribe(row: HTMLElement): Promise<Prep> {
     images: [image],
     chatName: ctx.chatName,
   };
+}
+
+export function prepTranslate(row: HTMLElement): Prep {
+  const target = parseRow(row);
+  if (!target || !(target.text || target.caption)) {
+    throw new Error('Sem texto para traduzir nesta mensagem.');
+  }
+  const ctx = readVisibleChat() ?? { chatName: '', isGroup: false, messages: [] };
+  return { title: 'Tradução', task: 'explain', thread: buildTranslatePrompt(ctx, target), chatName: ctx.chatName };
 }
 
 export function prepSearchConversation(): Prep {

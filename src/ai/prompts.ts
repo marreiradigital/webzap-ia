@@ -78,6 +78,34 @@ Se houver termos, siglas ou referencias que mereçam esclarecimento, comente bre
   ];
 }
 
+export function buildTranslatePrompt(ctx: ChatContext, target: WaMessage): ChatMessage[] {
+  const alvo = target.text || target.caption || '';
+  const system = `Voce traduz mensagens de WhatsApp. Traduza a mensagem a seguir para portugues do Brasil; se ela ja estiver em portugues, traduza para ingles. Responda apenas com a traducao, sem comentarios.`;
+  const user = `Mensagem${target.author ? ` de ${target.author}` : ''}:\n"${alvo}"`;
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ];
+}
+
+/** Traduz um texto avulso (usado na barra do campo de mensagem). */
+export function buildTranslateTextPrompt(text: string): ChatMessage[] {
+  const system = `Voce traduz textos. Traduza o texto a seguir para portugues do Brasil; se ja estiver em portugues, traduza para ingles. Responda apenas com a traducao.`;
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: text },
+  ];
+}
+
+/** Revisa/melhora um texto que o usuario vai enviar (ortografia, clareza, tom). */
+export function buildImproveTextPrompt(text: string): ChatMessage[] {
+  const system = `Voce revisa mensagens de WhatsApp que o usuario vai enviar: corrige ortografia e pontuacao, melhora a clareza e mantem o tom natural e informal, no mesmo idioma. Responda apenas com o texto revisado, sem comentarios. ${LANG_INSTRUCTION}`;
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: text },
+  ];
+}
+
 /** Prompt para descrever/analisar uma imagem (enviada junto como anexo de visao). */
 export function buildDescribeImagePrompt(
   ctx: ChatContext,

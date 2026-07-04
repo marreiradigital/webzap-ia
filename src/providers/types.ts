@@ -3,7 +3,7 @@
 
 export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'openrouter';
 
-export type Capability = 'chat' | 'transcribe' | 'vision' | 'embeddings' | 'search';
+export type Capability = 'chat' | 'transcribe' | 'vision' | 'embeddings' | 'search' | 'tts';
 
 export type ChatRole = 'system' | 'user' | 'assistant';
 
@@ -62,6 +62,7 @@ export interface ProviderModule {
     chat: string;
     transcribe?: string;
     embed?: string;
+    tts?: string;
   };
   /** Sugestoes exibidas na UI (o usuario pode digitar qualquer modelo). */
   suggestedModels: {
@@ -92,6 +93,13 @@ export interface ProviderModule {
     creds: ProviderCredentials,
     signal?: AbortSignal,
   ): Promise<number[][]>;
+  /** Sintese de voz (texto -> audio). Opcional. Devolve base64 + mimeType. */
+  speak?(
+    text: string,
+    model: string,
+    creds: ProviderCredentials,
+    signal?: AbortSignal,
+  ): Promise<{ base64: string; mimeType: string }>;
 }
 
 export function hasCapability(p: ProviderModule, cap: Capability): boolean {
