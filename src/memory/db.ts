@@ -50,11 +50,17 @@ export async function activeMemories(): Promise<Memory[]> {
   return all.filter((m) => !m.archived);
 }
 
+/** Conjunto normalizado dos conteudos existentes — dedupe em lote com UMA leitura
+ *  do banco (em vez de varrer a tabela inteira por item). */
+export async function existingContents(): Promise<Set<string>> {
+  const all = await db.memories.toArray();
+  return new Set(all.map((m) => m.content.trim().toLowerCase()));
+}
+
 /** Evita duplicar memorias com o mesmo conteudo (usado no auto-treino). */
 export async function memoryExists(content: string): Promise<boolean> {
-  const norm = content.trim().toLowerCase();
-  const all = await db.memories.toArray();
-  return all.some((m) => m.content.trim().toLowerCase() === norm);
+  const set = await existingContents();
+  return set.has(content.trim().toLowerCase());
 }
 
 // ---- Entrevista ----

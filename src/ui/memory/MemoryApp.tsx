@@ -119,12 +119,22 @@ function Interview() {
     try {
       const lastQuestion = [...turns].reverse().find((t) => t.role === 'assistant')?.content ?? '';
       await addInterviewTurn('user', answer);
+      const history = await getInterview();
+      setTurns(history);
+
+      // Extracao de memorias e proxima pergunta sao independentes: rodam em
+      // PARALELO (antes eram sequenciais e dobravam a espera de cada turno).
+      const [extractedRaw, question] = await Promise.all([
+        askAI(extractMemoriesMessages(lastQuestion, answer)).catch(() => ''),
+        askAI(nextQuestionMessages(history)),
+      ]);
+
+      await addInterviewTurn('assistant', question.trim());
       setTurns(await getInterview());
 
-      // Extrai memorias da resposta e salva (deduplicando).
+      // Salva memorias extraidas (best-effort; nao bloqueia a entrevista).
       try {
-        const raw = await askAI(extractMemoriesMessages(lastQuestion, answer));
-        const mems = parseMemories(raw);
+        const mems = parseMemories(extractedRaw);
         let saved = 0;
         for (const m of mems) {
           if (!(await memoryExists(m.content))) {
@@ -135,13 +145,8 @@ function Interview() {
         }
         if (saved) setSavedCount((c) => c + saved);
       } catch {
-        /* extracao e best-effort; nao bloqueia a entrevista */
+        /* extracao e best-effort */
       }
-
-      // Proxima pergunta.
-      const question = await askAI(nextQuestionMessages(await getInterview()));
-      await addInterviewTurn('assistant', question.trim());
-      setTurns(await getInterview());
     } catch (err) {
       setError((err as Error).message);
     } finally {
