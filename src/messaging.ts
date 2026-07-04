@@ -16,6 +16,12 @@ export type BgRequest =
       images?: { base64: string; mimeType: string }[];
       /** Habilita busca na web (exige provider com 'search'). */
       search?: boolean;
+      /** Nome do contato/grupo atual, para injetar memorias relevantes (persona). */
+      chatName?: string;
+      /** Injeta o perfil do usuario (memoria) como system. Usado em sugerir/auto-resposta. */
+      usePersona?: boolean;
+      /** Ignora as regras personalizadas (ex.: entrevista/extracao que precisam de saida crua). */
+      raw?: boolean;
     }
   | {
       kind: 'transcribe';
@@ -25,11 +31,44 @@ export type BgRequest =
       prompt?: string;
     }
   | { kind: 'testProvider'; providerId: ProviderId }
-  | { kind: 'openOptions' };
+  | { kind: 'openOptions' }
+  | { kind: 'openMemory' };
 
 export type BgResponse =
   | { ok: true; text: string }
   | { ok: false; error: string };
+
+export type StreamChatInput = Omit<Extract<BgRequest, { kind: 'chat' }>, 'kind'>;
+
+export interface StreamHandlers {
+  onDelta: (text: string) => void;
+  onDone: (full: string) => void;
+  onError: (error: string) => void;
+}
+
+/** Chat em streaming (escrita ao vivo) via porta. Retorna funcao para cancelar. */
+export function streamChat(input: StreamChatInput, handlers: StreamHandlers): () => void {
+  const port = browser.runtime.connect({ name: 'wz-chat' });
+  const close = () => {
+    try {
+      port.disconnect();
+    } catch {
+      /* ja fechada */
+    }
+  };
+  port.onMessage.addListener((m: { type: string; text?: string; error?: string }) => {
+    if (m.type === 'delta') handlers.onDelta(m.text ?? '');
+    else if (m.type === 'done') {
+      handlers.onDone(m.text ?? '');
+      close();
+    } else if (m.type === 'error') {
+      handlers.onError(m.error ?? 'Erro no streaming.');
+      close();
+    }
+  });
+  port.postMessage({ kind: 'chat', ...input });
+  return close;
+}
 
 /** Chamada do content/UI para o background. Sempre resolve (erros viram ok:false). */
 export async function callBackground(req: BgRequest): Promise<BgResponse> {

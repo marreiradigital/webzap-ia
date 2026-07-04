@@ -72,6 +72,13 @@ export interface ProviderModule {
     creds: ProviderCredentials,
     signal?: AbortSignal,
   ): Promise<ChatResult>;
+  /** Versao streaming: chama onDelta com pedacos de texto. Opcional. */
+  chatStream?(
+    req: ChatRequest,
+    creds: ProviderCredentials,
+    onDelta: (text: string) => void,
+    signal?: AbortSignal,
+  ): Promise<void>;
   transcribe?(
     req: TranscribeRequest,
     creds: ProviderCredentials,

@@ -1,25 +1,16 @@
-import { postJson } from './http';
+import { postJson, postForStream, readSSE } from './http';
 import type { ChatRequest, ChatResult, ProviderCredentials, ProviderId } from './types';
 
 // Logica de chat compartilhada por providers compativeis com a API da OpenAI
-// (OpenAI e OpenRouter). Fonte unica para nao duplicar o mapeamento de mensagens.
+// (OpenAI e OpenRouter). Fonte unica do mapeamento de mensagens/imagens.
 
 interface OpenAiChatResponse {
   choices: Array<{ message?: { content?: string } }>;
 }
 
-export async function openAiCompatibleChat(
-  providerId: ProviderId,
-  baseUrl: string,
-  req: ChatRequest,
-  creds: ProviderCredentials,
-  extraHeaders: Record<string, string>,
-  signal?: AbortSignal,
-): Promise<ChatResult> {
-  const base = baseUrl.replace(/\/$/, '');
+function buildBody(req: ChatRequest, stream: boolean) {
   const lastUserIdx = req.messages.map((m) => m.role).lastIndexOf('user');
   const messages = req.messages.map((m, i) => {
-    // Anexa imagens (data URI) na ultima mensagem do usuario, quando houver.
     if (i === lastUserIdx && req.images?.length) {
       return {
         role: m.role,
@@ -34,18 +25,59 @@ export async function openAiCompatibleChat(
     }
     return { role: m.role, content: m.content };
   });
+  return {
+    model: req.model,
+    messages,
+    temperature: req.temperature,
+    max_tokens: req.maxTokens,
+    stream,
+  };
+}
+
+export async function openAiCompatibleChat(
+  providerId: ProviderId,
+  baseUrl: string,
+  req: ChatRequest,
+  creds: ProviderCredentials,
+  extraHeaders: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<ChatResult> {
+  const base = baseUrl.replace(/\/$/, '');
   const data = await postJson<OpenAiChatResponse>(
     providerId,
     `${base}/chat/completions`,
     { authorization: `Bearer ${creds.apiKey}`, ...extraHeaders },
-    {
-      model: req.model,
-      messages,
-      temperature: req.temperature,
-      max_tokens: req.maxTokens,
-    },
+    buildBody(req, false),
     signal,
   );
-  const text = (data.choices?.[0]?.message?.content ?? '').trim();
-  return { text };
+  return { text: (data.choices?.[0]?.message?.content ?? '').trim() };
+}
+
+export async function openAiCompatibleChatStream(
+  providerId: ProviderId,
+  baseUrl: string,
+  req: ChatRequest,
+  creds: ProviderCredentials,
+  extraHeaders: Record<string, string>,
+  onDelta: (text: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const base = baseUrl.replace(/\/$/, '');
+  const res = await postForStream(
+    providerId,
+    `${base}/chat/completions`,
+    { authorization: `Bearer ${creds.apiKey}`, ...extraHeaders },
+    buildBody(req, true),
+    signal,
+  );
+  await readSSE(res, (data) => {
+    if (data === '[DONE]') return;
+    try {
+      const json = JSON.parse(data);
+      const delta = json?.choices?.[0]?.delta?.content;
+      if (delta) onDelta(delta);
+    } catch {
+      /* ignora linhas nao-JSON */
+    }
+  });
 }

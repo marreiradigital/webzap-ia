@@ -1,4 +1,4 @@
-import { postJson } from './http';
+import { postJson, postForStream, readSSE } from './http';
 import type {
   ChatRequest,
   ChatResult,
@@ -14,7 +14,37 @@ interface GeminiResponse {
   candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
 }
 
-// Google Gemini: chat + transcricao de audio (audio inline num unico endpoint generateContent).
+function buildChatBody(req: ChatRequest) {
+  const system = req.messages
+    .filter((m) => m.role === 'system')
+    .map((m) => m.content)
+    .join('\n\n');
+  const turns = req.messages.filter((m) => m.role !== 'system');
+  const lastUserIdx = turns.map((m) => m.role).lastIndexOf('user');
+  const contents = turns.map((m, i) => {
+    const parts: Array<Record<string, unknown>> = [{ text: m.content }];
+    if (i === lastUserIdx && req.images?.length) {
+      for (const img of req.images) {
+        parts.unshift({ inline_data: { mime_type: img.mimeType, data: img.base64 } });
+      }
+    }
+    return { role: m.role === 'assistant' ? 'model' : 'user', parts };
+  });
+  return {
+    ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+    contents,
+    ...(req.search ? { tools: [{ google_search: {} }] } : {}),
+    generationConfig: { temperature: req.temperature, maxOutputTokens: req.maxTokens },
+  };
+}
+
+function extractText(data: GeminiResponse): string {
+  return (data.candidates?.[0]?.content?.parts ?? [])
+    .map((p) => p.text ?? '')
+    .join('');
+}
+
+// Google Gemini: chat + transcricao de audio (audio inline no generateContent).
 export const gemini: ProviderModule = {
   id: 'gemini',
   label: 'Google Gemini',
@@ -30,40 +60,33 @@ export const gemini: ProviderModule = {
 
   async chat(req: ChatRequest, creds: ProviderCredentials, signal): Promise<ChatResult> {
     const base = creds.baseUrl?.replace(/\/$/, '') ?? DEFAULT_BASE;
-    const system = req.messages
-      .filter((m) => m.role === 'system')
-      .map((m) => m.content)
-      .join('\n\n');
-    const turns = req.messages.filter((m) => m.role !== 'system');
-    const lastUserIdx = turns.map((m) => m.role).lastIndexOf('user');
-    const contents = turns.map((m, i) => {
-      const parts: Array<Record<string, unknown>> = [{ text: m.content }];
-      // Anexa imagens (base64 inline) na ultima mensagem do usuario.
-      if (i === lastUserIdx && req.images?.length) {
-        for (const img of req.images) {
-          parts.unshift({ inline_data: { mime_type: img.mimeType, data: img.base64 } });
-        }
-      }
-      return { role: m.role === 'assistant' ? 'model' : 'user', parts };
-    });
-
     const data = await postJson<GeminiResponse>(
       'gemini',
       `${base}/models/${encodeURIComponent(req.model)}:generateContent?key=${encodeURIComponent(creds.apiKey)}`,
       {},
-      {
-        ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-        contents,
-        // Grounding com Google Search quando a busca online esta habilitada.
-        ...(req.search ? { tools: [{ google_search: {} }] } : {}),
-        generationConfig: {
-          temperature: req.temperature,
-          maxOutputTokens: req.maxTokens,
-        },
-      },
+      buildChatBody(req),
       signal,
     );
-    return { text: extractText(data) };
+    return { text: extractText(data).trim() };
+  },
+
+  async chatStream(req, creds, onDelta, signal): Promise<void> {
+    const base = creds.baseUrl?.replace(/\/$/, '') ?? DEFAULT_BASE;
+    const res = await postForStream(
+      'gemini',
+      `${base}/models/${encodeURIComponent(req.model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(creds.apiKey)}`,
+      {},
+      buildChatBody(req),
+      signal,
+    );
+    await readSSE(res, (data) => {
+      try {
+        const text = extractText(JSON.parse(data));
+        if (text) onDelta(text);
+      } catch {
+        /* ignora */
+      }
+    });
   },
 
   async transcribe(
@@ -93,13 +116,6 @@ export const gemini: ProviderModule = {
       },
       signal,
     );
-    return { text: extractText(data) };
+    return { text: extractText(data).trim() };
   },
 };
-
-function extractText(data: GeminiResponse): string {
-  return (data.candidates?.[0]?.content?.parts ?? [])
-    .map((p) => p.text ?? '')
-    .join('')
-    .trim();
-}

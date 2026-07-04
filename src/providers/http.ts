@@ -48,6 +48,55 @@ export async function postForm<T>(
   return parseResponse<T>(providerId, res);
 }
 
+/** POST que devolve a Response crua para leitura de SSE (streaming). */
+export async function postForStream(
+  providerId: ProviderId,
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<Response> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (err) {
+    if ((err as Error)?.name === 'AbortError') throw err;
+    throw new ProviderError(
+      `Falha de rede ao acessar ${providerId}: ${(err as Error).message}`,
+      providerId,
+    );
+  }
+  if (!res.ok) {
+    const raw = await res.text();
+    throw new ProviderError(humanizeError(providerId, res.status, raw), providerId, res.status);
+  }
+  return res;
+}
+
+/** Le um corpo SSE linha a linha, chamando onData com o payload apos "data:". */
+export async function readSSE(res: Response, onData: (data: string) => void): Promise<void> {
+  const reader = res.body?.getReader();
+  if (!reader) return;
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      const t = line.trim();
+      if (t.startsWith('data:')) onData(t.slice(5).trim());
+    }
+  }
+}
+
 async function parseResponse<T>(providerId: ProviderId, res: Response): Promise<T> {
   const raw = await res.text();
   if (!res.ok) {

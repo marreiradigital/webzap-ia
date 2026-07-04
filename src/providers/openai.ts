@@ -1,5 +1,5 @@
 import { postForm } from './http';
-import { openAiCompatibleChat } from './openai-compatible';
+import { openAiCompatibleChat, openAiCompatibleChatStream } from './openai-compatible';
 import { base64ToBlob } from '@/src/lib/binary';
 import type {
   ChatRequest,
@@ -33,6 +33,11 @@ export const openai: ProviderModule = {
   chat(req: ChatRequest, creds: ProviderCredentials, signal): Promise<ChatResult> {
     const base = creds.baseUrl?.replace(/\/$/, '') ?? DEFAULT_BASE;
     return openAiCompatibleChat('openai', base, req, creds, {}, signal);
+  },
+
+  chatStream(req, creds, onDelta, signal) {
+    const base = creds.baseUrl?.replace(/\/$/, '') ?? DEFAULT_BASE;
+    return openAiCompatibleChatStream('openai', base, req, creds, {}, onDelta, signal);
   },
 
   async transcribe(
