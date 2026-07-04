@@ -58,8 +58,11 @@ src/messaging.ts            -> protocolo tipado content <-> background
 - O painel de resultados é um **chat** (`src/ui/content/Panel.tsx`): após uma ação dá para continuar perguntando (`followUp` em `actions.ts`). Cada conversa tem seu painel (indexado por `readHeaderTitle()`); trocar de conversa troca o painel.
 - Botões de IA são **injetados por mensagem** (`src/wa/inject-buttons.ts`, light DOM) — colados à bolha e rolam junto.
 - `config.generation` (`maxTokens`/`temperature`/`rules`) é editável no painel (engrenagem) e nas Opções; aplicada no `background.ts` (rules vira `system` extra). `maxTokens` padrão 2048 para não cortar respostas.
+- **Streaming**: chat transmite token a token via porta `wz-chat` (`streamChat` em `messaging.ts` → `background` → `provider.chatStream` SSE). O `background.prepareChat` unifica persona+regras+limites para chat normal e streaming.
+- **Markdown**: respostas renderizadas com `marked` + `dompurify` (`src/ui/content/Markdown.tsx`) — nunca mostrar markdown cru.
+- **Memória** (`src/memory/`): Dexie na origem da extensão (compartilhado background↔página); persona injetada no `suggest` via `usePersona`+`chatName`. Página em `entrypoints/memory/`.
 
 ## Roadmap
 
-- **Fase 1 (feito):** resumir, explicar, transcrever, descrever imagem, sugerir, **pesquisar online**, painel-chat por conversa, config de geração, multi-provedor, options/popup.
-- **Fase 2:** Persona & Memória (Dexie), resposta automática (3 modos). Specs em [`.claude/SDD/`](./.claude/SDD/).
+- **Fase 1 (feito):** resumir, explicar, transcrever, descrever imagem, sugerir, pesquisar online, painel-chat por conversa, streaming, markdown, config de geração, multi-provedor.
+- **Fase 2 (em andamento):** Persona & Memória (entrevista + injeção no sugerir — **feito**; auto-treino pendente); **resposta automática** (3 modos — pendente). Specs em [`.claude/SDD/`](./.claude/SDD/).

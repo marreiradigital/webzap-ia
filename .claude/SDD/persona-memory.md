@@ -1,31 +1,32 @@
-# SDD — Persona & Memória (Fase 2)
+# SDD — Persona & Memória
 
-> Status: **planejado** (não implementado na v1). Este documento é o design.
+> Status: **implementado** (entrevista + memórias + injeção no sugerir). Auto-treino automático ainda pendente.
 
 ## Objetivo
 
-Dar à IA contexto persistente sobre o usuário — quem é, preferências, como responde — para que sugestões e auto-respostas soem como ele. Inclui auto-treinamento a partir das próprias conversas.
+Dar à IA contexto persistente sobre o usuário — quem é, preferências, como responde — para que sugestões (e futuramente auto-respostas) soem como ele.
 
 ## Armazenamento
 
-- **IndexedDB via Dexie** (`src/memory/db.ts`), 100% local. `db.ts` isola o Dexie atrás de uma interface para permitir trocar por SQLite-WASM no futuro.
-- Schema (`schema.ts`): `PersonaFact`, `Preference`, `ContactNote`, `StyleSample`, `MemoryEmbedding`, `Interview`. Cada memória tem `origin` (`manual`/`entrevista`/`auto-train`), timestamp e flag ativa/arquivada.
+- **IndexedDB via Dexie** ([`src/memory/db.ts`](../../src/memory/db.ts)), 100% local, na **origem da extensão** — assim a página de memória (`chrome-extension://`) e o **background** compartilham o mesmo banco. O content script (origem `web.whatsapp.com`) não acessa direto: a recuperação acontece no background.
+- Schema ([`schema.ts`](../../src/memory/schema.ts)): `Memory { type: persona|preference|style|contact, content, contact?, origin: manual|entrevista|auto-train, archived, timestamps }` + `InterviewTurn`.
 
 ## Página "Persona & Memória" (`entrypoints/memory/`)
 
-- **Chat de entrevista** (`interviewer.ts`): a IA faz perguntas e, a cada resposta, extrai e salva memórias estruturadas. Onboarding + conversa contínua para ensinar mais.
-- **Gestão de memórias**: lista pesquisável, editar/apagar/arquivar, agrupada por tipo e por contato/grupo. Transparência e controle total.
+- **Aba Entrevista** ([`interviewer.ts`](../../src/memory/interviewer.ts)): a IA faz uma pergunta por vez e, a cada resposta, uma chamada de extração devolve memórias em JSON, salvas (deduplicadas por conteúdo).
+- **Aba Memórias**: lista por tipo, editar (blur salva), arquivar/reativar, apagar, adicionar manual.
+- As chamadas de IA usam `raw: true` (ignoram as regras do usuário) para não sujar a extração.
 
 ## Recuperação (`retriever.ts`)
 
-Ao gerar sugestão/auto-resposta, seleciona as memórias mais relevantes ao chat atual (contato/grupo + semântica/keyword + recência) e injeta no prompt como "perfil do usuário + como ele responde". Mantém o prompt enxuto (top-N). Com provedor de embeddings (OpenAI/Gemini), usa vetor; senão, keyword+recência.
+No background, para a tarefa `suggest` (e futura `autoReply`), `selectRelevant(memorias, {contact, query})` pontua por tipo + match de contato + keyword + recência e `personaSystemPrompt` monta o "perfil do usuário" injetado como `system` (top-N, prompt enxuto). Content passa `chatName` + `usePersona: true`. Embeddings ficam para depois.
 
-## Auto-treinamento (`auto-train.ts`, opt-in)
+## Pendente (próximo)
 
-Extrai fatos e amostras de estilo das mensagens **do próprio usuário** e grava como memórias `auto-train`, deduplicadas contra as existentes. Controles: liga/desliga global e por chat, "esquecer este chat", revisão. **Aviso claro**: envia trechos das conversas ao provedor configurado; desligado por padrão.
+- **Auto-treinamento** (`auto-train.ts`): extrair estilo/fatos das mensagens do próprio usuário, opt-in, com aviso de privacidade.
+- Injetar persona também na **resposta automática** (ver [`auto-reply.md`](./auto-reply.md)).
 
 ## Critérios de aceite
 
-- Responder à entrevista cria memórias visíveis e editáveis.
-- Ligar auto-treino num chat de teste gera memórias `auto-train` deduplicadas.
-- As respostas geradas melhoram ao incorporar a memória do contato/grupo.
+- Responder à entrevista cria memórias visíveis e editáveis na aba Memórias.
+- "Sugerir resposta" reflete o perfil (tom/nome/preferências) quando há memórias.

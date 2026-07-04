@@ -22,6 +22,11 @@ O painel de resultados é uma **conversa contínua**: depois de resumir/explicar
 
 Engrenagem no painel abre controles de `temperature`, `maxTokens` e `rules` (instruções personalizadas), persistidos em `config.generation` ([`storage.ts`](../../src/storage.ts)) e também editáveis nas Opções. O background aplica: `maxTokens` (padrão 2048 — evita respostas cortadas), `temperature` e injeta `rules` como um `system` extra em toda geração ([`background.ts`](../../entrypoints/background.ts)).
 
+## Streaming e Markdown
+
+- As ações de chat transmitem a resposta **ao vivo** (token a token) via `streamChat` (porta `wz-chat`) → `background` → `provider.chatStream` (SSE). `App.streamInto` atualiza o último turno conforme os deltas chegam. Sugerir/transcrever não usam streaming.
+- Respostas do assistente são renderizadas como **Markdown** ([`Markdown.tsx`](../../src/ui/content/Markdown.tsx), `marked` + `dompurify`).
+
 ## UX
 
 - Header: título + nome da conversa + engrenagem + fechar.
