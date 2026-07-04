@@ -2,6 +2,24 @@
 
 Todas as mudanças notáveis do **WebZap - IA**. Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.6.3] - 2026-07-04
+
+Revisão geral de fluxos, performance e robustez (auditoria completa do código).
+
+### Corrigido
+- **Ícone de IA agora aparece também nas mensagens recebidas**: a detecção de bolha olhava só o canto superior esquerdo, e bolha recebida com "rabinho" tem esse canto reto — toda recebida era descartada. Agora considera o maior raio entre os 4 cantos.
+- **Clicar no ícone abre o menu de ações**: o botão ficava embaixo do menuzinho nativo do WhatsApp (que roubava o clique). Agora fica fora do canto da bolha, no lado livre, e só aparece ao passar o mouse na mensagem (menos poluição visual).
+- **Auto-resposta não vaza mais entre conversas**: se você trocasse de chat enquanto a IA gerava, o rascunho/auto-envio ia parar na conversa errada; o cartão de sugestão também sobrevivia à troca. Agora tudo é amarrado à conversa de origem e re-checado após a geração.
+- **Menção em grupo** casa palavra inteira ("chefe" não dispara em "chefeteria").
+- **Streaming blindado**: se o service worker cair, o painel avisa em vez de ficar preso em "Gerando…"; fechar o painel aborta a geração no provedor (não gasta tokens à toa); timeout nas chamadas HTTP (120s/300s).
+- **OpenAI o-series/gpt-5 (ex.: o4-mini)**: usa `max_completion_tokens` e omite `temperature` nos modelos de raciocínio (dava HTTP 400); teste de conexão com folga de tokens.
+- **Config blindada**: config antiga/corrompida não derruba mais a UI; `maxTokens`/`temperature` inválidos voltam ao padrão.
+
+### Desempenho
+- WhatsApp não fica mais "travoso": fim do re-render contínuo a cada 700ms; observers com coalescing por frame; watcher de auto-resposta só varre o DOM se a conversa tem modo ligado; linhas já processadas não são re-varridas.
+- Painel: Markdown memoizado (só o último turno re-parseia durante o streaming) e autoscroll que não rouba a rolagem de quem voltou para ler.
+- Entrevista da memória: extração e próxima pergunta em paralelo (turno ~2x mais rápido); deduplicação de memórias em lote.
+
 ## [0.6.2] - 2026-07-04
 
 ### Corrigido

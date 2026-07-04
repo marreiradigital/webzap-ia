@@ -56,7 +56,8 @@ src/messaging.ts            -> protocolo tipado content <-> background
 ## Painel-chat e geração
 
 - O painel de resultados é um **chat** (`src/ui/content/Panel.tsx`): após uma ação dá para continuar perguntando (`followUp` em `actions.ts`). Cada conversa tem seu painel (indexado por `readHeaderTitle()`); trocar de conversa troca o painel.
-- Botões de IA são **injetados por mensagem** (`src/wa/inject-buttons.ts`, light DOM) — colados à bolha e rolam junto.
+- Botões de IA são **injetados por mensagem** (`src/wa/inject-buttons.ts`, light DOM) — colados à bolha, rolam junto e aparecem só no **hover** da linha, fora do canto da bolha (o menuzinho nativo do WhatsApp fica no canto superior direito interno e rouba o clique se o botão ficar dentro).
+- **Barra de ferramentas do campo** (no App): ditar (gravar → transcrever → inserir), traduzir o texto digitado, melhorar/revisar e ouvir (TTS via `speak` do provedor; capability `tts`).
 - `config.generation` (`maxTokens`/`temperature`/`rules`) é editável no painel (engrenagem) e nas Opções; aplicada no `background.ts` (rules vira `system` extra). `maxTokens` padrão 2048 para não cortar respostas.
 - **Streaming**: chat transmite token a token via porta `wz-chat` (`streamChat` em `messaging.ts` → `background` → `provider.chatStream` SSE). O `background.prepareChat` unifica persona+regras+limites para chat normal e streaming.
 - **Markdown**: respostas renderizadas com `marked` + `dompurify` (`src/ui/content/Markdown.tsx`) — nunca mostrar markdown cru.
