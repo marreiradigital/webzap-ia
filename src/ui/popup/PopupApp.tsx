@@ -79,6 +79,12 @@ export default function PopupApp() {
           >
             Abrir opções
           </button>
+          <button
+            onClick={() => browser.tabs.create({ url: browser.runtime.getURL('/memory.html') })}
+            className="mt-2 w-full rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+          >
+            🧠 Persona & Memória
+          </button>
 
           <p className="mt-3 text-center text-[11px] text-neutral-400">
             Abra o WhatsApp Web e clique no botão flutuante "Zap".
