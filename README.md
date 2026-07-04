@@ -1,71 +1,79 @@
 # WebZap - IA
 
-[![Versão](https://img.shields.io/badge/vers%C3%A3o-0.6.2-25D366)](CHANGELOG.md)
+[![Versão](https://img.shields.io/github/package-json/v/marreiradigital/webzap-ia?label=vers%C3%A3o&color=25D366)](CHANGELOG.md)
 [![Stars](https://img.shields.io/github/stars/marreiradigital/webzap-ia?style=flat&logo=github&color=25D366)](https://github.com/marreiradigital/webzap-ia/stargazers)
 [![Forks](https://img.shields.io/github/forks/marreiradigital/webzap-ia?style=flat&logo=github&color=25D366)](https://github.com/marreiradigital/webzap-ia/network/members)
 [![Último commit](https://img.shields.io/github/last-commit/marreiradigital/webzap-ia?color=25D366)](https://github.com/marreiradigital/webzap-ia/commits/main)
 
-Extensão de navegador (Chrome/Edge, Manifest V3) que injeta funcionalidades de **IA direto no WhatsApp Web**: resumir conversas, transcrever áudios, explicar mensagens e sugerir respostas — usando o provedor de IA que você preferir (Anthropic, OpenAI, Google Gemini ou OpenRouter).
+Extensão de navegador (Chrome/Edge, Manifest V3) que coloca **IA dentro do WhatsApp Web**: resumir conversas, **transcrever áudios sem precisar ouvir**, traduzir, explicar mensagens, sugerir respostas com o seu estilo, ditar mensagens por voz e pesquisar online — usando as **suas próprias chaves** de IA (Anthropic, OpenAI, Google Gemini ou OpenRouter), com **failover automático** entre provedores.
 
-🌐 **Site:** https://marreiradigital.github.io/webzap-ia/ · 📦 **Download:** [webzap-ia.zip](https://marreiradigital.github.io/webzap-ia/webzap-ia.zip)
+<p align="center">
+  <a href="https://marreiradigital.github.io/webzap-ia/"><strong>🌐 Site oficial</strong></a> ·
+  <a href="https://marreiradigital.github.io/webzap-ia/webzap-ia.zip"><strong>📦 Baixar a extensão</strong></a> ·
+  <a href="https://marreiradigital.github.io/webzap-ia/#instalacao"><strong>🧭 Tutorial de instalação</strong></a> ·
+  <a href="https://marreiradigital.github.io/webzap-ia/#como-usar"><strong>📖 Tutorial de uso</strong></a> ·
+  <a href="https://marreiradigital.github.io/webzap-ia/#novidades"><strong>🆕 Novidades</strong></a>
+</p>
 
 > ⚠️ **Aviso de conformidade.** Automatizar o WhatsApp Web pode violar os [Termos de Uso do WhatsApp](https://www.whatsapp.com/legal/terms-of-service) e, no modo auto-enviar, resultar em **bloqueio da conta**. Por padrão a extensão só lê o que está visível e insere sugestões no campo para você revisar; o envio automático é **opt-in por conversa** e exige aceitar um aviso. Use por sua conta e risco.
 
-## ✨ Funcionalidades (v1)
+## ✨ Funcionalidades
 
-- **Resumir a conversa visível** — resumo curto, médio ou detalhado (grupo ou conversa privada).
-- **Ações por mensagem** — cada mensagem ganha um botão de IA colado a ela: **Explicar**, **Transcrever áudio**, **Descrever imagem** e **Pesquisar online**.
-- **Painel-chat** — os resultados abrem num chat: dá para **continuar perguntando** (mais contexto, detalhar) e ligar a **busca online** na resposta. Cada conversa tem o seu painel.
-- **Pesquisar online** — respostas atualizadas com fontes (Anthropic web search ou Gemini grounding).
-- **Sugerir resposta** — 2–3 sugestões; clique para inserir no campo (você revisa e envia).
-- **Controles de geração** — limite de tokens, temperatura e **regras/instruções personalizadas**, no painel ou nas Opções.
-- **Multi-provedor** — Anthropic, OpenAI, Gemini e/ou OpenRouter, com escolha por tarefa.
+**Nas mensagens** (ícone ✦ ao passar o mouse na bolha):
 
-### Também inclui (Fase 2)
+- **Explicar do que se trata** — com o contexto das mensagens anteriores;
+- **Transcrever áudio** — a extensão carrega o áudio sozinha, em silêncio; você lê em vez de ouvir;
+- **Traduzir** a mensagem (e **Descrever imagem** em modelos com visão);
+- **Pesquisar online** sobre aquela mensagem, com fontes.
 
-- **Persona & Memória** — página de "entrevista" onde a IA aprende seu estilo/contexto e guarda como memória local (para respostas mais suas), com auto-treino opcional.
-- **Resposta automática** com 3 modos por conversa (sugestão / rascunho para revisar / auto-envio), sempre opt-in e com aviso de banimento.
-- **Streaming** (escrita ao vivo) e **Markdown** renderizado nas respostas.
+**Na conversa** (botão flutuante 🤖):
 
-## 🧱 Stack
+- **Resumir** — curto, médio ou detalhado, com pendências separadas;
+- **Sugerir resposta** — 2–3 opções no seu tom; você escolhe, revisa e envia;
+- **Pesquisar online** sobre o assunto da conversa;
+- **Auto-resposta por conversa** — desligada / sugerir / rascunho / auto-enviar ⚠️;
+- **Aprender desta conversa** — alimenta a memória local da IA.
 
-- [WXT](https://wxt.dev) (framework para extensões, Manifest V3)
-- React + TypeScript + Tailwind CSS v4
-- [Dexie](https://dexie.org) (IndexedDB, usado na Fase 2 de memória)
-- Gerenciador de pacotes: **pnpm**
+**No campo de digitação** (barra de ferramentas):
 
-## 🚀 Rodando em desenvolvimento
+- 🎤 **Ditar** (gravar → transcrever → inserir) · 🌐 **Traduzir** o texto digitado · ✨ **Melhorar/revisar** · 🔊 **Ouvir** (TTS).
+
+**Por trás:**
+
+- **Painel-chat** — todo resultado abre num chat lateral com follow-up, busca online opcional e **streaming** com Markdown;
+- **Persona & Memória** — entrevista + memórias locais (IndexedDB) com busca semântica opcional (embeddings);
+- **Provedor principal + reservas** — se o principal falhar numa chamada, a reserva assume automaticamente;
+- **Controles de geração** — temperatura, limite de tokens e regras personalizadas.
+
+## 🚀 Instalação (usuário)
+
+O caminho ilustrado e sempre atualizado está no site: **[tutorial de instalação](https://marreiradigital.github.io/webzap-ia/#instalacao)**. Em resumo:
+
+1. Baixe o [webzap-ia.zip](https://marreiradigital.github.io/webzap-ia/webzap-ia.zip) e extraia numa pasta permanente;
+2. `chrome://extensions` → ative o **Modo do desenvolvedor** → **Carregar sem compactação** → escolha a pasta;
+3. Ícone da extensão → **Abrir opções** → cole a chave de pelo menos um provedor → **Testar conexão**;
+4. Defina o **provedor principal e as reservas** e abra o [WhatsApp Web](https://web.whatsapp.com).
+
+| Provedor   | Chat | Transcrição | Visão | Busca online | Embeddings | TTS |
+|------------|:----:|:-----------:|:-----:|:------------:|:----------:|:---:|
+| Anthropic  |  ✅  |      —      |  ✅   |      ✅      |     —      |  —  |
+| OpenAI     |  ✅  |     ✅      |  ✅   |      —       |     ✅     | ✅  |
+| Gemini     |  ✅  |     ✅      |  ✅   |      ✅      |     ✅     |  —  |
+| OpenRouter |  ✅  |      —      | depende |    —       |     —      |  —  |
+
+As chaves ficam **apenas no seu navegador** (`chrome.storage.local`); todo `fetch` acontece no service worker — a página do WhatsApp nunca vê a chave.
+
+## 🛠️ Desenvolvimento
+
+Stack: [WXT](https://wxt.dev) (MV3) · React · TypeScript · Tailwind CSS v4 · [Dexie](https://dexie.org) · **pnpm**.
 
 ```bash
 pnpm install
-pnpm dev          # abre o Chrome com a extensão em modo dev (HMR)
-```
-
-O WXT abre um Chrome de desenvolvimento com a extensão já carregada. Acesse `https://web.whatsapp.com` (logado) e o botão flutuante **"Zap"** aparece no canto inferior direito.
-
-## 📦 Build de produção
-
-```bash
+pnpm dev          # Chrome de dev com HMR e a extensão carregada
+pnpm compile      # typecheck
 pnpm build        # gera .output/chrome-mv3
-pnpm zip          # empacota para publicar
+pnpm zip          # empacota (o zip do site fica em docs/webzap-ia.zip)
 ```
-
-Para carregar manualmente: abra `chrome://extensions`, ative o **Modo do desenvolvedor**, clique em **Carregar sem compactação** e selecione a pasta `.output/chrome-mv3`.
-
-## ⚙️ Configuração
-
-1. Clique no ícone da extensão → **Abrir opções** (ou o botão flutuante "Zap" → "Opções / provedores").
-2. Adicione a **chave de API** de pelo menos um provedor e clique em **Testar conexão**.
-3. (Opcional) Defina qual provedor/modelo usar por tarefa.
-
-As chaves de API ficam **apenas no seu navegador** (armazenamento local da extensão). Todo o `fetch` aos provedores acontece no service worker da extensão — as chaves nunca são expostas na página do WhatsApp.
-
-| Provedor   | Chat | Transcrição | Imagem (visão) | Busca online |
-|------------|:----:|:-----------:|:--------------:|:------------:|
-| Anthropic  |  ✅  |     —       |       ✅       |      ✅      |
-| OpenAI     |  ✅  |     ✅      |       ✅       |      —       |
-| Gemini     |  ✅  |     ✅      |       ✅       |      ✅      |
-| OpenRouter |  ✅  |     —       |     depende    |      —       |
 
 ## 🗂️ Estrutura
 
@@ -73,17 +81,20 @@ As chaves de API ficam **apenas no seu navegador** (armazenamento local da exten
 webzap-ia/
 ├─ wxt.config.ts              # manifest MV3, matches, host_permissions (fonte única dos hosts)
 ├─ entrypoints/
-│  ├─ background.ts           # service worker: ÚNICO lugar que faz fetch aos provedores
-│  ├─ content/               # UI injetada no WhatsApp (shadow root); index.tsx + style.css
+│  ├─ background.ts           # service worker: ÚNICO lugar que faz fetch aos provedores (com failover)
+│  ├─ content/                # UI injetada no WhatsApp (shadow root); index.tsx + style.css
 │  ├─ options/                # página de configuração (React + Tailwind)
+│  ├─ memory/                 # página Persona & Memória
 │  └─ popup/                  # popup do ícone (toggle mestre + status)
 ├─ src/
 │  ├─ providers/              # camada de IA: types, anthropic, openai, gemini, openrouter, registry
-│  ├─ wa/                     # camada DOM do WhatsApp: selectors (fonte única), chat-reader, audio, composer
-│  ├─ ai/                     # prompts.ts (templates) + resolve.ts (provedor por tarefa)
-│  ├─ ui/                     # componentes React (content, options, popup)
-│  ├─ storage.ts              # config tipada (chrome.storage.local)
-│  └─ messaging.ts            # protocolo tipado content <-> background
+│  ├─ wa/                     # camada DOM do WhatsApp: selectors (fonte única), chat-reader, audio, composer, inject-buttons, auto-reply
+│  ├─ ai/                     # prompts.ts (templates) + resolve.ts (cadeia principal → reservas)
+│  ├─ memory/                 # Dexie: memórias, entrevista, recuperação (keyword + embeddings)
+│  ├─ ui/                     # componentes React (content, options, memory, popup)
+│  ├─ storage.ts              # config tipada e normalizada (chrome.storage.local)
+│  └─ messaging.ts            # protocolo tipado content <-> background (mensagens + porta de streaming)
+├─ docs/                      # site do GitHub Pages (landing + tutoriais + changelog dinâmico)
 ├─ CLAUDE.md                  # regras + arquitetura (lido automaticamente pelo Claude Code)
 └─ .claude/
    ├─ SDD/                    # Spec Driven Development: 1 spec por feature ("o quê/por quê")
@@ -99,13 +110,13 @@ Usuário no WhatsApp Web
    │  content lê o DOM visível  ─────────────►  src/wa/ (chat-reader, selectors)
    │  monta o prompt            ─────────────►  src/ai/prompts.ts
    ▼
-content script  ──callBackground() (mensagem tipada, src/messaging.ts)──►  background
+content script  ──callBackground()/streamChat() (tipado, src/messaging.ts)──►  background
    ▼
 background / service worker (entrypoints/background.ts)
-   │  resolve provedor + modelo da tarefa  ──►  src/ai/resolve.ts  (+ src/storage.ts)
-   │  faz o fetch ao provedor              ──►  src/providers/*  (registry.ts)
+   │  monta a cadeia principal → reservas  ──►  src/ai/resolve.ts  (+ src/storage.ts)
+   │  faz o fetch (failover automático)    ──►  src/providers/*  (registry.ts)
    ▼
-texto  ──►  volta ao content  ──►  painel lateral (overlay por CSS, sem travar scroll)
+texto/stream  ──►  volta ao content  ──►  painel lateral (overlay por CSS, sem travar scroll)
 ```
 
 **Regra de ouro:** as chaves de API só existem no **background**. O content script nunca faz fetch externo nem enxerga a chave.
@@ -117,11 +128,12 @@ texto  ──►  volta ao content  ──►  painel lateral (overlay por CSS, 
 | Mudar/adicionar seletor do WhatsApp | [`src/wa/selectors.ts`](./src/wa/selectors.ts) (fonte única) |
 | Adicionar um provedor de IA | `src/providers/<id>.ts` + [`registry.ts`](./src/providers/registry.ts) + `host_permissions` |
 | Ajustar um prompt | [`src/ai/prompts.ts`](./src/ai/prompts.ts) |
-| Escolher provedor por tarefa | [`src/ai/resolve.ts`](./src/ai/resolve.ts) |
+| Ordem de prioridade / failover | [`src/ai/resolve.ts`](./src/ai/resolve.ts) (`resolveChain`, `eligibleProviders`) |
 | Config/estado persistido | [`src/storage.ts`](./src/storage.ts) |
 | Protocolo content ↔ background | [`src/messaging.ts`](./src/messaging.ts) |
-| UI injetada (FAB, painel, hover) | [`src/ui/content/`](./src/ui/content/) + [`entrypoints/content/style.css`](./entrypoints/content/style.css) |
-| Página de opções / popup | [`src/ui/options`](./src/ui/options/) · [`src/ui/popup`](./src/ui/popup/) |
+| UI injetada (FAB, painel, botões por bolha) | [`src/ui/content/`](./src/ui/content/) + [`src/wa/inject-buttons.ts`](./src/wa/inject-buttons.ts) + [`entrypoints/content/style.css`](./entrypoints/content/style.css) |
+| Página de opções / memória / popup | [`src/ui/options`](./src/ui/options/) · [`src/ui/memory`](./src/ui/memory/) · [`src/ui/popup`](./src/ui/popup/) |
+| Site (GitHub Pages) | [`docs/index.html`](./docs/index.html) — changelog é carregado do [`CHANGELOG.md`](./CHANGELOG.md) em tempo real |
 
 ## 🤖 Documentação para contribuidores e agentes de IA
 
@@ -137,6 +149,8 @@ Princípio central: **reuse-first + fonte única** — antes de criar helper/sel
 
 - Chaves de API e configurações: `chrome.storage.local` (só no seu dispositivo).
 - Conteúdo das conversas: enviado **apenas** ao provedor de IA que você configurou, no momento em que você aciona uma ação (resumir, explicar, etc.). Nada é enviado a servidores próprios do projeto.
+- Persona e memórias: IndexedDB local; você edita, arquiva ou apaga quando quiser.
+- Detalhes: [PRIVACY.md](./PRIVACY.md).
 
 ## 📄 Licença
 
