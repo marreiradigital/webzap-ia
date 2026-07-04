@@ -1,5 +1,10 @@
 # WebZap - IA
 
+[![Versão](https://img.shields.io/badge/vers%C3%A3o-0.6.0-25D366)](CHANGELOG.md)
+[![Stars](https://img.shields.io/github/stars/marreiradigital/webzap-ia?style=flat&logo=github&color=25D366)](https://github.com/marreiradigital/webzap-ia/stargazers)
+[![Forks](https://img.shields.io/github/forks/marreiradigital/webzap-ia?style=flat&logo=github&color=25D366)](https://github.com/marreiradigital/webzap-ia/network/members)
+[![Último commit](https://img.shields.io/github/last-commit/marreiradigital/webzap-ia?color=25D366)](https://github.com/marreiradigital/webzap-ia/commits/main)
+
 Extensão de navegador (Chrome/Edge, Manifest V3) que injeta funcionalidades de **IA direto no WhatsApp Web**: resumir conversas, transcrever áudios, explicar mensagens e sugerir respostas — usando o provedor de IA que você preferir (Anthropic, OpenAI, Google Gemini ou OpenRouter).
 
 🌐 **Site:** https://marreiradigital.github.io/webzap-ia/ · 📦 **Download:** [webzap-ia.zip](https://marreiradigital.github.io/webzap-ia/webzap-ia.zip)
