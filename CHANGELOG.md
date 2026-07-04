@@ -5,6 +5,7 @@ Todas as mudanças notáveis do **WebZap - IA**. Formato baseado em [Keep a Chan
 ## [0.6.0] - 2026-07-04
 
 ### Adicionado
+- **Site do projeto (GitHub Pages)** em `docs/`: landing page com apresentação, recursos, passos de instalação e botão de download.
 - **Busca semântica na memória (embeddings)**: providers OpenAI e Gemini geram embeddings; a recuperação de persona usa similaridade de cosseno quando há vetores, com fallback para keyword.
 - **Direcionamento em grupo configurável**: campo de nomes/apelidos nas Opções; em grupo a auto-resposta dispara por `@` ou por esses nomes.
 - **Badge no botão flutuante** indicando auto-resposta ativa (amarelo) ou auto-enviar (vermelho).

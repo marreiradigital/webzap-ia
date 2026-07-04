@@ -2,6 +2,8 @@
 
 Extensão de navegador (Chrome/Edge, Manifest V3) que injeta funcionalidades de **IA direto no WhatsApp Web**: resumir conversas, transcrever áudios, explicar mensagens e sugerir respostas — usando o provedor de IA que você preferir (Anthropic, OpenAI, Google Gemini ou OpenRouter).
 
+🌐 **Site:** https://marreiradigital.github.io/webzap-ia/ · 📦 **Download:** [webzap-ia.zip](https://marreiradigital.github.io/webzap-ia/webzap-ia.zip)
+
 > ⚠️ **Aviso de conformidade.** Automatizar o WhatsApp Web pode violar os [Termos de Uso do WhatsApp](https://www.whatsapp.com/legal/terms-of-service) e, em casos de envio automático, resultar em **bloqueio da conta**. Esta extensão lê apenas o que está visível na tela e **nunca envia mensagens sozinha** na versão atual — as sugestões são inseridas no campo para você revisar e enviar. Use por sua conta e risco.
 
 ## ✨ Funcionalidades (v1)
