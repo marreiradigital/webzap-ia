@@ -7,7 +7,12 @@ Oferecer ações de IA numa mensagem específica sem poluir o DOM do WhatsApp co
 ## UX
 
 - Ao passar o mouse sobre uma mensagem, aparece um **mini botão "IA"** ancorado no canto da bolha (um único elemento que segue o cursor, não um ícone por bolha).
-- Clique abre um menu: **Explicar do que se trata** e **Transcrever áudio** (habilitado só quando há áudio na mensagem).
+- Clique abre um menu **contextual ao tipo de mídia** (detectado por `detectKind`):
+  - **texto**: Explicar do que se trata.
+  - **áudio**: Explicar + **Transcrever áudio**.
+  - **imagem**: Explicar + **Descrever imagem** (envia a imagem a um provedor com `vision`).
+  - **vídeo/documento**: Explicar (usa legenda/contexto) + aviso de que análise direta ainda não é suportada.
+- Ícones SVG (Bootstrap Icons inline, `src/ui/content/icons.tsx`); o mini botão usa o ícone de estrelas (IA) e o FAB, um robô.
 - Resultado no painel lateral. Fecha com Esc / clique no ✕.
 
 ## Implementação
