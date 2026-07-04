@@ -32,9 +32,28 @@ export const anthropic: ProviderModule = {
       .filter((m) => m.role === 'system')
       .map((m) => m.content)
       .join('\n\n');
-    const messages = req.messages
-      .filter((m) => m.role !== 'system')
-      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+    const turns = req.messages.filter((m) => m.role !== 'system');
+    const lastUserIdx = turns.map((m) => m.role).lastIndexOf('user');
+    const messages = turns.map((m, i) => {
+      // Anexa imagens (base64) na ultima mensagem do usuario, quando houver.
+      if (i === lastUserIdx && req.images?.length) {
+        return {
+          role: 'user' as const,
+          content: [
+            ...req.images.map((img) => ({
+              type: 'image' as const,
+              source: {
+                type: 'base64' as const,
+                media_type: img.mimeType,
+                data: img.base64,
+              },
+            })),
+            { type: 'text' as const, text: m.content },
+          ],
+        };
+      }
+      return { role: m.role as 'user' | 'assistant', content: m.content };
+    });
 
     const data = await postJson<AnthropicResponse>(
       'anthropic',

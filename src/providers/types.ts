@@ -12,11 +12,18 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ImageInput {
+  base64: string;
+  mimeType: string;
+}
+
 export interface ChatRequest {
   model: string;
   messages: ChatMessage[];
   temperature?: number;
   maxTokens?: number;
+  /** Imagens anexadas a ultima mensagem do usuario (para providers com 'vision'). */
+  images?: ImageInput[];
 }
 
 export interface ChatResult {

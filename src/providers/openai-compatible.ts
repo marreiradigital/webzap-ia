@@ -17,13 +17,30 @@ export async function openAiCompatibleChat(
   signal?: AbortSignal,
 ): Promise<ChatResult> {
   const base = baseUrl.replace(/\/$/, '');
+  const lastUserIdx = req.messages.map((m) => m.role).lastIndexOf('user');
+  const messages = req.messages.map((m, i) => {
+    // Anexa imagens (data URI) na ultima mensagem do usuario, quando houver.
+    if (i === lastUserIdx && req.images?.length) {
+      return {
+        role: m.role,
+        content: [
+          { type: 'text', text: m.content },
+          ...req.images.map((img) => ({
+            type: 'image_url',
+            image_url: { url: `data:${img.mimeType};base64,${img.base64}` },
+          })),
+        ],
+      };
+    }
+    return { role: m.role, content: m.content };
+  });
   const data = await postJson<OpenAiChatResponse>(
     providerId,
     `${base}/chat/completions`,
     { authorization: `Bearer ${creds.apiKey}`, ...extraHeaders },
     {
       model: req.model,
-      messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+      messages,
       temperature: req.temperature,
       max_tokens: req.maxTokens,
     },

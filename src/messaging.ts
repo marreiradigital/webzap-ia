@@ -12,6 +12,8 @@ export type BgRequest =
       messages: ChatMessage[];
       maxTokens?: number;
       temperature?: number;
+      /** Imagens anexadas (para "descrever imagem"); exige provider com vision. */
+      images?: { base64: string; mimeType: string }[];
     }
   | {
       kind: 'transcribe';

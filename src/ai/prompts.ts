@@ -48,21 +48,45 @@ ${renderTranscript(ctx.messages)}
   ];
 }
 
+const KIND_LABEL: Record<string, string> = {
+  audio: 'uma mensagem de áudio',
+  image: 'uma imagem',
+  video: 'um vídeo',
+  document: 'um documento',
+  other: 'uma mídia',
+};
+
 export function buildExplainPrompt(
   ctx: ChatContext,
   target: WaMessage,
   contextWindow: WaMessage[],
 ): ChatMessage[] {
   const system = `Voce ajuda a entender mensagens de WhatsApp. Explique de forma breve do que se trata a mensagem, considerando o contexto anterior. ${LANG_INSTRUCTION}`;
+  const alvo = target.text
+    ? `esta mensagem${target.author ? ` de ${target.author}` : ''}:\n"${target.text}"`
+    : `${KIND_LABEL[target.kind] ?? 'esta mensagem'}${target.author ? ` enviada por ${target.author}` : ''} (sem texto), considerando o contexto`;
   const user = `Contexto recente:
 """
 ${renderTranscript(contextWindow, 15)}
 """
 
-Explique do que se trata esta mensagem${target.author ? ` de ${target.author}` : ''}:
-"${target.text}"
-
+Explique do que se trata ${alvo}.
 Se houver termos, siglas ou referencias que mereçam esclarecimento, comente brevemente.`;
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ];
+}
+
+/** Prompt para descrever/analisar uma imagem (enviada junto como anexo de visao). */
+export function buildDescribeImagePrompt(
+  ctx: ChatContext,
+  caption?: string,
+): ChatMessage[] {
+  const system = `Voce descreve imagens enviadas no WhatsApp. Diga de forma clara o que a imagem mostra e, se houver texto na imagem, transcreva-o. ${LANG_INSTRUCTION}`;
+  const user = caption
+    ? `Descreva a imagem a seguir. Legenda enviada junto: "${caption}".`
+    : 'Descreva a imagem a seguir: o que ela mostra e, se tiver texto, transcreva.';
   return [
     { role: 'system', content: system },
     { role: 'user', content: user },

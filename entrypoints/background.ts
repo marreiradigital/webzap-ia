@@ -22,12 +22,19 @@ async function handle(msg: BgRequest): Promise<BgResponse> {
   switch (msg.kind) {
     case 'chat': {
       const { provider, model, creds } = resolveTask(config, msg.task);
+      if (msg.images?.length && !provider.capabilities.includes('vision')) {
+        return {
+          ok: false,
+          error: `${provider.label} não suporta analisar imagens. Use OpenAI, Gemini, Anthropic ou um modelo com visão no OpenRouter.`,
+        };
+      }
       const { text } = await provider.chat(
         {
           model,
           messages: msg.messages,
           maxTokens: msg.maxTokens ?? 1024,
           temperature: msg.temperature,
+          images: msg.images,
         },
         creds,
       );

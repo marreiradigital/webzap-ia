@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { HOST_TAG } from './constants';
-import { summarize, suggest, explain, transcribe } from './actions';
+import { summarize, suggest, explain, transcribe, describeImage } from './actions';
+import { RobotIcon, StarsIcon, MicIcon, ImageIcon, LightbulbIcon } from './icons';
 import { insertIntoComposer } from '@/src/wa/composer';
-import { hasAudio } from '@/src/wa/audio';
+import { detectKind } from '@/src/wa/message-nodes';
 import { callBackground } from '@/src/messaging';
 import { watchConfig, getConfig, type FeatureToggles } from '@/src/storage';
 import type { SummaryLength } from '@/src/ai/prompts';
+import type { MediaKind } from '@/src/wa/types';
 
 interface RowAnchor {
   row: HTMLElement;
@@ -29,9 +31,20 @@ const DEFAULT_FEATURES: FeatureToggles = {
   suggest: true,
 };
 
+const KIND_TITLE: Record<MediaKind, string> = {
+  text: 'Esta mensagem',
+  audio: 'Mensagem de áudio',
+  image: 'Imagem',
+  video: 'Vídeo',
+  document: 'Documento',
+  other: 'Esta mensagem',
+};
+
 function isMessageRow(row: Element): boolean {
-  return !!row.querySelector('.message-in, .message-out');
+  return !!row.querySelector('.message-in, .message-out, [data-pre-plain-text]');
 }
+
+const ROW_SELECTOR = 'div[role="row"], .message-in, .message-out';
 
 export default function App() {
   const [features, setFeatures] = useState<FeatureToggles>(DEFAULT_FEATURES);
@@ -59,7 +72,7 @@ export default function App() {
       if (!t || !t.tagName) return;
       if (t.tagName.toLowerCase() === HOST_TAG) return; // sobre a nossa propria UI
       const main = document.getElementById('main');
-      const row = t.closest?.('div[role="row"]') as HTMLElement | null;
+      const row = t.closest?.(ROW_SELECTOR) as HTMLElement | null;
       if (main && row && main.contains(row) && isMessageRow(row)) {
         if (hideTimer.current) clearTimeout(hideTimer.current);
         setHover({ row, rect: row.getBoundingClientRect() });
@@ -123,8 +136,7 @@ export default function App() {
 
   if (!features.enabled) return null;
 
-  const menuRow = menu?.row ?? null;
-  const menuHasAudio = menuRow ? hasAudio(menuRow) : false;
+  const menuKind: MediaKind = menu?.row ? detectKind(menu.row) : 'text';
 
   return (
     <div className="wz-root">
@@ -141,34 +153,49 @@ export default function App() {
             setMenu({ row: hover.row, rect: hover.row.getBoundingClientRect() });
           }}
         >
-          IA
+          <StarsIcon size={15} />
         </button>
       )}
 
-      {/* Menu de acoes por mensagem */}
+      {/* Menu de acoes por mensagem (contextual ao tipo de midia) */}
       {menu && (
         <div
           className="wz-menu"
           style={{
-            top: Math.min(window.innerHeight - 160, menu.rect.top + 4),
+            top: Math.min(window.innerHeight - 190, menu.rect.top + 4),
             left: Math.min(window.innerWidth - 240, menu.rect.right - 30),
           }}
         >
-          <div className="wz-menu-title">Esta mensagem</div>
+          <div className="wz-menu-title">{KIND_TITLE[menuKind]}</div>
           <button
             className="wz-menu-item"
             onClick={() => run('Explicar mensagem', undefined, () => explain(menu.row))}
           >
-            💡 Explicar do que se trata
+            <LightbulbIcon /> Explicar do que se trata
           </button>
-          <button
-            className="wz-menu-item"
-            disabled={!features.transcribe || !menuHasAudio}
-            title={!menuHasAudio ? 'Sem áudio nesta mensagem' : ''}
-            onClick={() => run('Transcrição do áudio', undefined, () => transcribe(menu.row))}
-          >
-            🎙️ Transcrever áudio
-          </button>
+          {menuKind === 'audio' && (
+            <button
+              className="wz-menu-item"
+              disabled={!features.transcribe}
+              onClick={() => run('Transcrição do áudio', undefined, () => transcribe(menu.row))}
+            >
+              <MicIcon /> Transcrever áudio
+            </button>
+          )}
+          {menuKind === 'image' && (
+            <button
+              className="wz-menu-item"
+              onClick={() => run('Descrição da imagem', undefined, () => describeImage(menu.row))}
+            >
+              <ImageIcon /> Descrever imagem
+            </button>
+          )}
+          {(menuKind === 'video' || menuKind === 'document') && (
+            <div className="wz-hint" style={{ padding: '4px 10px 8px' }}>
+              {menuKind === 'video' ? 'Vídeo' : 'Documento'}: análise direta ainda não
+              suportada — o "Explicar" usa a legenda e o contexto.
+            </div>
+          )}
         </div>
       )}
 
@@ -176,9 +203,10 @@ export default function App() {
       <button
         className="wz-fab"
         title="WebZap - IA"
+        aria-label="Abrir menu do WebZap - IA"
         onClick={() => setFabOpen((v) => !v)}
       >
-        Zap
+        <RobotIcon size={26} />
       </button>
 
       {fabOpen && (

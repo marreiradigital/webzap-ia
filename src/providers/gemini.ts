@@ -34,12 +34,18 @@ export const gemini: ProviderModule = {
       .filter((m) => m.role === 'system')
       .map((m) => m.content)
       .join('\n\n');
-    const contents = req.messages
-      .filter((m) => m.role !== 'system')
-      .map((m) => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
-      }));
+    const turns = req.messages.filter((m) => m.role !== 'system');
+    const lastUserIdx = turns.map((m) => m.role).lastIndexOf('user');
+    const contents = turns.map((m, i) => {
+      const parts: Array<Record<string, unknown>> = [{ text: m.content }];
+      // Anexa imagens (base64 inline) na ultima mensagem do usuario.
+      if (i === lastUserIdx && req.images?.length) {
+        for (const img of req.images) {
+          parts.unshift({ inline_data: { mime_type: img.mimeType, data: img.base64 } });
+        }
+      }
+      return { role: m.role === 'assistant' ? 'model' : 'user', parts };
+    });
 
     const data = await postJson<GeminiResponse>(
       'gemini',
