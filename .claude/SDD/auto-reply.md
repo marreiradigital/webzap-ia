@@ -1,35 +1,37 @@
-# SDD — Resposta automática (Fase 2)
+# SDD — Resposta automática
 
-> Status: **planejado** (não implementado na v1). Este documento é o design.
+> Status: **implementado** (3 modos, watcher, guard-rails). Direcionamento em grupo é heurístico (menção @) — refinar depois.
 
 ## Objetivo
 
-Deixar a IA responder por você em grupo/PV quando fizer sentido, com controle total do usuário e mínimo risco de banimento.
+Deixar a IA responder por você em grupo/PV quando fizer sentido, com controle total e mínimo risco de banimento.
 
-## Modos (o usuário escolhe por chat; padrão desligado)
+## Modos (por conversa, padrão `off`) — `config.autoReply.byChat[chatKey]`
 
-1. **Sugestão em painel** — mostra a resposta proposta; você copia/usa.
-2. **Rascunho + revisar** — escreve no campo (`composer.ts`) mas **não envia**; você revisa e aperta enviar.
-3. **Auto-envio** — escreve e envia sozinho. Exige confirmação com **aviso de banimento** ao ativar; indicador visível de que está ligado.
+1. **Sugerir no painel** (`suggest`) — mostra a resposta num cartão flutuante com "Inserir"/"Ignorar".
+2. **Rascunho** (`draft`) — `insertIntoComposer` no campo, **não envia**.
+3. **Auto-enviar** (`autosend`) — `sendMessage` (insere + clica enviar). Exige aceitar o **modal de aviso de banimento** ao ativar.
 
-## Gatilhos
+Selecionável no menu do FAB ("Auto-resposta (esta conversa)").
 
-- **Grupo**: só quando **mencionado/direcionado** — @menção ao usuário, reply à sua mensagem, ou um classificador leve via IA ("isto pede resposta minha?").
-- **PV**: toda mensagem recebida, com throttle.
+## Gatilhos ([`src/wa/auto-reply.ts`](../../src/wa/auto-reply.ts))
 
-## Componentes
+- `MutationObserver` no `body` detecta a **última mensagem** nova; rebaseline ao trocar de conversa (não dispara no histórico).
+- **PV**: qualquer mensagem recebida. **Grupo**: só quando `directed` (texto contém `@` — heurística de menção).
+- A geração usa a tarefa `suggest` com `usePersona` (perfil injetado) e o prompt `buildAutoReplyPrompt`, que pode responder `[SKIP]` para não responder.
 
-- `src/wa/observer.ts` (novo): `MutationObserver` em `#main` detecta novas mensagens recebidas.
-- Usa **memória** (`persona-memory.md`) via `retriever.ts` para a resposta soar como o usuário.
-- Estado por chat em `chrome.storage.local` (id derivado do header/DOM).
+## Guard-rails
 
-## Guardrails (obrigatórios)
+- Nunca responde à própria mensagem (`direction === 'out'`); **cooldown** de 8s entre disparos.
+- **Kill-switch**: o interruptor mestre (`features.enabled`) desliga o watcher.
+- Auto-envio só após aceitar o modal de aviso.
 
-- Nunca responder às próprias mensagens; cooldown entre respostas; limite por minuto.
-- **Kill-switch global** no popup (o interruptor mestre já desliga tudo).
-- Nada de auto-envio sem o modal de aviso aceito.
+## Pendente
+
+- Direcionamento em grupo mais preciso (reply à sua mensagem, nome do usuário).
+- Indicador persistente de auto-envio ativo; limites por minuto.
 
 ## Critérios de aceite
 
-- Ativar "rascunho" num PV de teste gera rascunho no campo sem enviar.
-- Auto-envio exige aceite do aviso e mostra indicador; kill-switch interrompe na hora.
+- "Rascunho" num PV de teste gera rascunho no campo sem enviar.
+- Auto-enviar exige aceite do aviso; o interruptor mestre interrompe na hora.
