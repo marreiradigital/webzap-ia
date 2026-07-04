@@ -32,3 +32,28 @@ export function insertIntoComposer(text: string): boolean {
   }
   return true;
 }
+
+/** Clica no botao de enviar (ou pressiona Enter no campo). */
+export function clickSend(): boolean {
+  const btn = firstMatch<HTMLElement>(document, SEL.sendButton);
+  if (btn) {
+    (btn.closest('button') ?? btn).click();
+    return true;
+  }
+  // Fallback: Enter no campo de digitacao.
+  const box = getComposer();
+  if (!box) return false;
+  box.focus();
+  const opts = { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 };
+  box.dispatchEvent(new KeyboardEvent('keydown', opts));
+  box.dispatchEvent(new KeyboardEvent('keyup', opts));
+  return true;
+}
+
+/** Insere o texto e envia. USADO SO no modo auto-enviar (opt-in, com aviso). */
+export function sendMessage(text: string): boolean {
+  if (!insertIntoComposer(text)) return false;
+  // Pequeno atraso para o WhatsApp registrar o texto antes de enviar.
+  setTimeout(() => clickSend(), 250);
+  return true;
+}

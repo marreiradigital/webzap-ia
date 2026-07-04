@@ -47,6 +47,14 @@ export const SEL = {
     'footer div[contenteditable="true"]',
     'div[contenteditable="true"][data-tab="10"]',
   ],
+  /** Botao de enviar mensagem. */
+  sendButton: [
+    'footer button[aria-label="Enviar" i]',
+    'footer button[aria-label="Send" i]',
+    'footer [data-icon="send"]',
+    'button[aria-label="Enviar" i]',
+    'span[data-icon="send"]',
+  ],
 } as const;
 
 /** Primeiro elemento que casar com algum dos seletores. */

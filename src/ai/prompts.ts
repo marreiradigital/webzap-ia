@@ -131,6 +131,21 @@ ${LANG_INSTRUCTION}`,
   ];
 }
 
+export function buildAutoReplyPrompt(ctx: ChatContext): ChatMessage[] {
+  const escopo = ctx.isGroup ? `no grupo "${ctx.chatName}"` : `com "${ctx.chatName}"`;
+  const system = `Voce responde no lugar do usuario no WhatsApp, ${escopo}. Escreva UMA unica resposta curta e natural, no tom do usuario, pronta para enviar. ${LANG_INSTRUCTION} Nao explique, nao use aspas, responda apenas com a mensagem. Se nao fizer sentido voce responder agora, responda exatamente: [SKIP].`;
+  const user = `Conversa recente:
+"""
+${renderTranscript(ctx.messages, 30)}
+"""
+
+Escreva a resposta que eu enviaria agora.`;
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ];
+}
+
 export function buildSuggestPrompt(ctx: ChatContext): ChatMessage[] {
   const escopo = ctx.isGroup ? `no grupo "${ctx.chatName}"` : `com "${ctx.chatName}"`;
   const system = `Voce sugere respostas para o usuario enviar no WhatsApp. Gere de 2 a 3 opcoes curtas, em tom natural e adequado ao contexto, como se fosse o proprio usuario respondendo. ${LANG_INSTRUCTION} Retorne apenas as opcoes, uma por linha, sem numeracao nem aspas.`;

@@ -13,10 +13,11 @@ import {
 } from './actions';
 import Panel, { type PanelData } from './Panel';
 import { RobotIcon, MicIcon, ImageIcon, LightbulbIcon, SearchIcon } from './icons';
-import { insertIntoComposer } from '@/src/wa/composer';
+import { insertIntoComposer, sendMessage } from '@/src/wa/composer';
 import { detectKind } from '@/src/wa/message-nodes';
 import { setupMessageButtons } from '@/src/wa/inject-buttons';
-import { readHeaderTitle } from '@/src/wa/chat-reader';
+import { setupAutoReplyWatcher, type IncomingInfo } from '@/src/wa/auto-reply';
+import { readHeaderTitle, readVisibleChat } from '@/src/wa/chat-reader';
 import { callBackground, streamChat, type StreamChatInput } from '@/src/messaging';
 import {
   watchConfig,
@@ -25,9 +26,17 @@ import {
   DEFAULT_CONFIG,
   type FeatureToggles,
   type GenerationSettings,
+  type AutoReplyMode,
 } from '@/src/storage';
-import type { SummaryLength } from '@/src/ai/prompts';
+import { buildAutoReplyPrompt, type SummaryLength } from '@/src/ai/prompts';
 import type { MediaKind } from '@/src/wa/types';
+
+const AUTO_MODES: { id: AutoReplyMode; label: string }[] = [
+  { id: 'off', label: 'Desligada' },
+  { id: 'suggest', label: 'Sugerir no painel' },
+  { id: 'draft', label: 'Rascunho (revisar)' },
+  { id: 'autosend', label: 'Auto-enviar ⚠️' },
+];
 
 interface Anchor {
   row: HTMLElement;
@@ -51,18 +60,27 @@ export default function App() {
   const [menu, setMenu] = useState<Anchor | null>(null);
   const [fabOpen, setFabOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [autoByChat, setAutoByChat] = useState<Record<string, AutoReplyMode>>({});
+  const [autoSuggestion, setAutoSuggestion] = useState<string | null>(null);
+  const [warnAutosend, setWarnAutosend] = useState(false);
   const chatKeyRef = useRef('');
   const genTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoRef = useRef(autoByChat);
+  const enabledRef = useRef(features.enabled);
+  autoRef.current = autoByChat;
+  enabledRef.current = features.enabled;
 
   // Config (features + geracao), com observacao de mudancas.
   useEffect(() => {
     getConfig().then((c) => {
       setFeatures(c.features);
       setGeneration(c.generation);
+      setAutoByChat(c.autoReply.byChat);
     });
     return watchConfig((c) => {
       setFeatures(c.features);
       setGeneration(c.generation);
+      setAutoByChat(c.autoReply.byChat);
     });
   }, []);
 
@@ -95,6 +113,15 @@ export default function App() {
     if (!features.enabled || !features.perMessage) return;
     return setupMessageButtons((row, rect) => setMenu({ row, rect }));
   }, [features.enabled, features.perMessage]);
+
+  // Watcher de auto-resposta (le refs para nao ficar com estado velho).
+  useEffect(() => {
+    if (!features.enabled) return;
+    return setupAutoReplyWatcher(
+      () => enabledRef.current,
+      (info) => void onIncoming(info),
+    );
+  }, [features.enabled]);
 
   // Esc fecha menus.
   useEffect(() => {
@@ -249,6 +276,54 @@ export default function App() {
     flash(ok ? 'Sugestão inserida no campo (revise e envie).' : 'Não achei o campo de mensagem.');
   }
 
+  // ---- Auto-resposta ----
+  async function onIncoming(info: IncomingInfo) {
+    const key = chatKeyRef.current;
+    const mode = autoRef.current[key] ?? 'off';
+    if (mode === 'off') return;
+    if (info.isGroup && !info.directed) return; // grupo: so quando mencionado (@)
+    const ctx = readVisibleChat();
+    if (!ctx || ctx.messages.length === 0) return;
+    const res = await callBackground({
+      kind: 'chat',
+      task: 'suggest',
+      messages: buildAutoReplyPrompt(ctx),
+      usePersona: true,
+      chatName: ctx.chatName,
+    });
+    if (!res.ok) return; // silencioso: nao atrapalha a conversa
+    const reply = res.text.trim();
+    if (!reply || reply.toUpperCase().includes('[SKIP]')) return;
+    if (mode === 'suggest') {
+      setAutoSuggestion(reply);
+    } else if (mode === 'draft') {
+      insertIntoComposer(reply);
+      flash('Rascunho de resposta inserido — revise e envie.');
+    } else if (mode === 'autosend') {
+      sendMessage(reply);
+      flash('Resposta enviada automaticamente.');
+    }
+  }
+
+  function persistAutoMode(key: string, mode: AutoReplyMode) {
+    setAutoByChat((prev) => ({ ...prev, [key]: mode }));
+    updateConfig((c) => ({
+      ...c,
+      autoReply: { byChat: { ...c.autoReply.byChat, [key]: mode } },
+    }));
+  }
+
+  function setAutoMode(mode: AutoReplyMode) {
+    const key = chatKeyRef.current;
+    if (mode === 'autosend' && (autoByChat[key] ?? 'off') !== 'autosend') {
+      setFabOpen(false);
+      setWarnAutosend(true);
+      return;
+    }
+    persistAutoMode(key, mode);
+    setFabOpen(false);
+  }
+
   function runSummary(length: SummaryLength) {
     runStream(() => prepSummary(length), 'Resumo');
   }
@@ -257,6 +332,7 @@ export default function App() {
 
   const menuKind: MediaKind = menu?.row ? detectKind(menu.row) : 'text';
   const current = panels[chatKey];
+  const autoMode = autoByChat[chatKey] ?? 'off';
 
   return (
     <div className="wz-root">
@@ -333,6 +409,19 @@ export default function App() {
           <button className="wz-menu-item" onClick={() => runStream(() => prepSearchConversation(), 'Pesquisa online')}>
             <SearchIcon /> Pesquisar online
           </button>
+
+          <div className="wz-menu-title">Auto-resposta (esta conversa)</div>
+          {AUTO_MODES.map((m) => (
+            <button
+              key={m.id}
+              className={`wz-menu-item ${autoMode === m.id ? 'wz-active' : ''}`}
+              onClick={() => setAutoMode(m.id)}
+            >
+              {autoMode === m.id ? '● ' : '○ '}
+              {m.label}
+            </button>
+          ))}
+
           <button
             className="wz-menu-item"
             onClick={() => {
@@ -369,6 +458,57 @@ export default function App() {
             flash('Copiado.');
           }}
         />
+      )}
+
+      {/* Cartao de sugestao de auto-resposta (modo "sugerir") */}
+      {autoSuggestion && (
+        <div className="wz-autocard">
+          <div className="wz-autocard-head">🤖 Resposta sugerida</div>
+          <div className="wz-autocard-body">{autoSuggestion}</div>
+          <div className="wz-autocard-foot">
+            <button className="wz-btn" onClick={() => setAutoSuggestion(null)}>
+              Ignorar
+            </button>
+            <button
+              className="wz-btn wz-btn-primary"
+              onClick={() => {
+                insertIntoComposer(autoSuggestion);
+                setAutoSuggestion(null);
+                flash('Inserido no campo (revise e envie).');
+              }}
+            >
+              Inserir
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Aviso ao ativar auto-envio */}
+      {warnAutosend && (
+        <div className="wz-modal-backdrop">
+          <div className="wz-modal">
+            <div className="wz-modal-title">⚠️ Ativar auto-envio?</div>
+            <div className="wz-modal-body">
+              Neste modo a IA vai <strong>enviar mensagens sozinha</strong> nesta conversa quando
+              achar que deve responder. Isso pode <strong>violar os Termos do WhatsApp</strong> e
+              resultar em <strong>bloqueio da conta</strong>. Use por sua conta e risco.
+            </div>
+            <div className="wz-modal-foot">
+              <button className="wz-btn" onClick={() => setWarnAutosend(false)}>
+                Cancelar
+              </button>
+              <button
+                className="wz-btn wz-btn-primary"
+                onClick={() => {
+                  persistAutoMode(chatKeyRef.current, 'autosend');
+                  setWarnAutosend(false);
+                }}
+              >
+                Entendo o risco, ativar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {toast && (

@@ -108,6 +108,83 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+.wz-menu-item.wz-active {
+  color: var(--wz-accent);
+  font-weight: 600;
+}
+
+/* Cartao de sugestao de auto-resposta */
+.wz-autocard {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: 150px;
+  width: min(340px, calc(100vw - 24px));
+  background: var(--wz-bg);
+  border: 1px solid var(--wz-border);
+  border-radius: 14px;
+  box-shadow: var(--wz-shadow);
+  pointer-events: auto;
+  overflow: hidden;
+}
+.wz-autocard-head {
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  border-bottom: 1px solid var(--wz-border);
+}
+.wz-autocard-body {
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.wz-autocard-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--wz-border);
+}
+
+/* Modal de aviso (auto-envio) */
+.wz-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  padding: 20px;
+}
+.wz-modal {
+  width: min(420px, 100%);
+  background: var(--wz-bg);
+  border-radius: 16px;
+  box-shadow: var(--wz-shadow);
+  overflow: hidden;
+}
+.wz-modal-title {
+  padding: 16px;
+  font-weight: 700;
+  font-size: 16px;
+  border-bottom: 1px solid var(--wz-border);
+}
+.wz-modal-body {
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.wz-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--wz-border);
+}
 
 /* Mini botao que segue a mensagem sob o cursor */
 .wz-hover-btn {

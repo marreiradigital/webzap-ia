@@ -40,6 +40,14 @@ export interface GenerationSettings {
   rules: string;
 }
 
+/** Modo de resposta automatica por conversa. */
+export type AutoReplyMode = 'off' | 'suggest' | 'draft' | 'autosend';
+
+export interface AutoReplySettings {
+  /** Modo por conversa (chave = nome do chat). Ausente = 'off'. */
+  byChat: Record<string, AutoReplyMode>;
+}
+
 export interface WebzapConfig {
   providers: Partial<Record<ProviderId, ProviderConfig>>;
   /** provider + modelo por tarefa. Ausente => usa o primeiro provider apto. */
@@ -48,6 +56,7 @@ export interface WebzapConfig {
   language: string;
   features: FeatureToggles;
   generation: GenerationSettings;
+  autoReply: AutoReplySettings;
 }
 
 export const DEFAULT_CONFIG: WebzapConfig = {
@@ -66,6 +75,7 @@ export const DEFAULT_CONFIG: WebzapConfig = {
     temperature: 0.6,
     rules: '',
   },
+  autoReply: { byChat: {} },
 };
 
 export const configItem = storage.defineItem<WebzapConfig>('local:webzap-config', {
@@ -81,6 +91,7 @@ export async function getConfig(): Promise<WebzapConfig> {
     ...raw,
     features: { ...DEFAULT_CONFIG.features, ...raw?.features },
     generation: { ...DEFAULT_CONFIG.generation, ...raw?.generation },
+    autoReply: { byChat: { ...raw?.autoReply?.byChat } },
     providers: { ...raw?.providers },
     tasks: { ...raw?.tasks },
   };
