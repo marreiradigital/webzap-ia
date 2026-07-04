@@ -61,16 +61,68 @@ As chaves de API ficam **apenas no seu navegador** (armazenamento local da exten
 ## 🗂️ Estrutura
 
 ```
-entrypoints/     # background, content (UI injetada), popup, options
-src/providers/   # camada de IA (fonte única; 1 arquivo por provedor + registry)
-src/wa/          # camada DOM do WhatsApp (seletores centralizados)
-src/ai/          # prompts + resolução de provedor por tarefa
-src/ui/          # componentes React (content, options, popup)
-.claude/SDD/     # Spec Driven Development (o "o quê/por quê" de cada feature)
-.claude/HARNESS/ # convenções para desenvolvimento assistido por IA
+webzap-ia/
+├─ wxt.config.ts              # manifest MV3, matches, host_permissions (fonte única dos hosts)
+├─ entrypoints/
+│  ├─ background.ts           # service worker: ÚNICO lugar que faz fetch aos provedores
+│  ├─ content/               # UI injetada no WhatsApp (shadow root); index.tsx + style.css
+│  ├─ options/                # página de configuração (React + Tailwind)
+│  └─ popup/                  # popup do ícone (toggle mestre + status)
+├─ src/
+│  ├─ providers/              # camada de IA: types, anthropic, openai, gemini, openrouter, registry
+│  ├─ wa/                     # camada DOM do WhatsApp: selectors (fonte única), chat-reader, audio, composer
+│  ├─ ai/                     # prompts.ts (templates) + resolve.ts (provedor por tarefa)
+│  ├─ ui/                     # componentes React (content, options, popup)
+│  ├─ storage.ts              # config tipada (chrome.storage.local)
+│  └─ messaging.ts            # protocolo tipado content <-> background
+├─ CLAUDE.md                  # regras + arquitetura (lido automaticamente pelo Claude Code)
+└─ .claude/
+   ├─ SDD/                    # Spec Driven Development: 1 spec por feature ("o quê/por quê")
+   └─ HARNESS/                # guias operacionais (adicionar provedor, atualizar seletores, guardrails)
 ```
 
-Detalhes de arquitetura e convenções: veja [`CLAUDE.md`](./CLAUDE.md) e [`.claude/SDD/00-overview.md`](./.claude/SDD/00-overview.md).
+## 🧭 Arquitetura & fluxo de dados
+
+Camadas isoladas, cada uma com uma responsabilidade e uma **fonte única**:
+
+```
+Usuário no WhatsApp Web
+   │  content lê o DOM visível  ─────────────►  src/wa/ (chat-reader, selectors)
+   │  monta o prompt            ─────────────►  src/ai/prompts.ts
+   ▼
+content script  ──callBackground() (mensagem tipada, src/messaging.ts)──►  background
+   ▼
+background / service worker (entrypoints/background.ts)
+   │  resolve provedor + modelo da tarefa  ──►  src/ai/resolve.ts  (+ src/storage.ts)
+   │  faz o fetch ao provedor              ──►  src/providers/*  (registry.ts)
+   ▼
+texto  ──►  volta ao content  ──►  painel lateral (overlay por CSS, sem travar scroll)
+```
+
+**Regra de ouro:** as chaves de API só existem no **background**. O content script nunca faz fetch externo nem enxerga a chave.
+
+## 🗺️ Mapa do código (onde mexer)
+
+| Quero… | Arquivo(s) |
+|---|---|
+| Mudar/adicionar seletor do WhatsApp | [`src/wa/selectors.ts`](./src/wa/selectors.ts) (fonte única) |
+| Adicionar um provedor de IA | `src/providers/<id>.ts` + [`registry.ts`](./src/providers/registry.ts) + `host_permissions` |
+| Ajustar um prompt | [`src/ai/prompts.ts`](./src/ai/prompts.ts) |
+| Escolher provedor por tarefa | [`src/ai/resolve.ts`](./src/ai/resolve.ts) |
+| Config/estado persistido | [`src/storage.ts`](./src/storage.ts) |
+| Protocolo content ↔ background | [`src/messaging.ts`](./src/messaging.ts) |
+| UI injetada (FAB, painel, hover) | [`src/ui/content/`](./src/ui/content/) + [`entrypoints/content/style.css`](./entrypoints/content/style.css) |
+| Página de opções / popup | [`src/ui/options`](./src/ui/options/) · [`src/ui/popup`](./src/ui/popup/) |
+
+## 🤖 Documentação para contribuidores e agentes de IA
+
+Para entender e evoluir o código (humano **ou** IA), comece por aqui — em ordem:
+
+1. [`CLAUDE.md`](./CLAUDE.md) — regras, convenções e arquitetura. O Claude Code lê este arquivo automaticamente ao abrir o repositório.
+2. [`.claude/SDD/00-overview.md`](./.claude/SDD/00-overview.md) — visão geral, com índice das specs por feature (o "o quê/por quê").
+3. [`.claude/HARNESS/README.md`](./.claude/HARNESS/README.md) — fluxo de tarefa, checklist de PR e guias operacionais.
+
+Princípio central: **reuse-first + fonte única** — antes de criar helper/seletor/URL, procure o existente. Nunca duplique seletor do WhatsApp, host de API ou prompt.
 
 ## 🔒 Privacidade
 
