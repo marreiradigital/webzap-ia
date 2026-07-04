@@ -91,6 +91,9 @@ export default function App() {
   const [autoSuggestion, setAutoSuggestion] = useState<string | null>(null);
   const [warnAutosend, setWarnAutosend] = useState(false);
   const [autoTrain, setAutoTrain] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [toolBusy, setToolBusy] = useState<string | null>(null);
+  const recRef = useRef<{ rec: MediaRecorder; stream: MediaStream } | null>(null);
   const [autoMentions, setAutoMentions] = useState('');
   const mentionsRef = useRef('');
   mentionsRef.current = autoMentions;
@@ -99,6 +102,7 @@ export default function App() {
   const autoRef = useRef(autoByChat);
   const enabledRef = useRef(features.enabled);
   const learnedRef = useRef<Set<string>>(new Set());
+  const autoCooldownRef = useRef(0);
   autoRef.current = autoByChat;
   enabledRef.current = features.enabled;
 
@@ -161,6 +165,14 @@ export default function App() {
       window.removeEventListener('resize', onScroll);
     };
   }, [inlineResults.length]);
+
+  // Mantem a barra de ferramentas do campo na posicao (o campo aparece/some ao
+  // abrir/fechar conversa).
+  useEffect(() => {
+    if (!features.enabled) return;
+    const iv = window.setInterval(() => forceTick((n) => n + 1), 700);
+    return () => window.clearInterval(iv);
+  }, [features.enabled]);
 
   // Watcher de auto-resposta (le refs para nao ficar com estado velho).
   useEffect(() => {
@@ -342,10 +354,12 @@ export default function App() {
 
   // ---- Auto-resposta ----
   async function onIncoming(info: IncomingInfo) {
-    const key = chatKeyRef.current;
-    const mode = autoRef.current[key] ?? 'off';
+    const mode = autoRef.current[info.chat] ?? 'off';
     if (mode === 'off') return;
     if (info.isGroup && !isDirectedToMe(info.text, mentionsRef.current)) return; // grupo: so quando direcionado
+    if (chatKeyRef.current !== info.chat) return; // usuario ja trocou de conversa
+    if (Date.now() < autoCooldownRef.current) return; // throttle entre auto-respostas
+    autoCooldownRef.current = Date.now() + 8000;
     const ctx = readVisibleChat();
     if (!ctx || ctx.messages.length === 0) return;
     const res = await callBackground({
@@ -414,6 +428,94 @@ export default function App() {
 
   function closeInline(id: number) {
     setInlineResults((r) => r.filter((x) => x.id !== id));
+  }
+
+  // ---- Ferramentas do campo de mensagem ----
+  async function startDictation() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size) chunks.push(e.data);
+      };
+      rec.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
+        setToolBusy('dictation');
+        try {
+          const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+          const base64 = await blobToBase64(blob);
+          const res = await callBackground({
+            kind: 'transcribe',
+            audioBase64: base64,
+            mimeType: blob.type || 'audio/webm',
+          });
+          if (res.ok && res.text) {
+            const cur = getComposerText();
+            insertIntoComposer(cur ? `${cur} ${res.text}` : res.text);
+            flash('Ditado inserido no campo.');
+          } else {
+            flash(res.ok ? 'Nada foi transcrito.' : res.error);
+          }
+        } catch (err) {
+          flash((err as Error).message);
+        } finally {
+          setToolBusy(null);
+        }
+      };
+      rec.start();
+      recRef.current = { rec, stream };
+      setRecording(true);
+    } catch {
+      flash('Não consegui acessar o microfone (permita o acesso).');
+    }
+  }
+
+  function stopDictation() {
+    recRef.current?.rec.stop();
+    recRef.current = null;
+  }
+
+  async function runComposerText(mode: 'translate' | 'improve') {
+    const text = getComposerText();
+    if (!text) {
+      flash('Escreva algo no campo primeiro.');
+      return;
+    }
+    setToolBusy(mode);
+    try {
+      const messages = mode === 'translate' ? buildTranslateTextPrompt(text) : buildImproveTextPrompt(text);
+      const res = await callBackground({ kind: 'chat', task: 'explain', messages, raw: true });
+      if (res.ok && res.text) {
+        insertIntoComposer(res.text.trim());
+        flash(mode === 'translate' ? 'Texto traduzido.' : 'Texto melhorado.');
+      } else {
+        flash(res.ok ? 'Sem resposta.' : res.error);
+      }
+    } finally {
+      setToolBusy(null);
+    }
+  }
+
+  async function speakComposer() {
+    const text = getComposerText();
+    if (!text) {
+      flash('Escreva algo no campo primeiro.');
+      return;
+    }
+    setToolBusy('tts');
+    try {
+      const res = await callBackground({ kind: 'tts', text });
+      if (res.ok && res.audio) {
+        new Audio(`data:${res.audio.mimeType};base64,${res.audio.base64}`).play().catch(() => {});
+        flash('Tocando áudio.');
+      } else {
+        flash(res.ok ? 'Sem áudio gerado.' : res.error);
+      }
+    } finally {
+      setToolBusy(null);
+    }
   }
 
   function runSummary(length: SummaryLength) {
@@ -500,6 +602,50 @@ export default function App() {
           )}
         </div>
       )}
+
+      {/* Barra de ferramentas do campo de mensagem */}
+      {(() => {
+        const el = getComposer();
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        if (!r.width) return null;
+        return (
+          <div className="wz-tools" style={{ left: Math.max(6, r.left), top: Math.max(6, r.top - 46) }}>
+            <button
+              className={`wz-tool ${recording ? 'wz-tool-rec' : ''}`}
+              title={recording ? 'Parar e transcrever' : 'Ditar (gravar e transcrever)'}
+              onClick={recording ? stopDictation : startDictation}
+            >
+              <MicIcon size={15} />
+            </button>
+            <button
+              className="wz-tool"
+              title="Traduzir meu texto"
+              disabled={!!toolBusy}
+              onClick={() => runComposerText('translate')}
+            >
+              🌐
+            </button>
+            <button
+              className="wz-tool"
+              title="Melhorar meu texto"
+              disabled={!!toolBusy}
+              onClick={() => runComposerText('improve')}
+            >
+              ✨
+            </button>
+            <button
+              className="wz-tool"
+              title="Ouvir (gerar áudio do texto)"
+              disabled={!!toolBusy}
+              onClick={speakComposer}
+            >
+              🔊
+            </button>
+            {(toolBusy || recording) && <span className="wz-spinner" style={{ marginLeft: 2 }} />}
+          </div>
+        );
+      })()}
 
       {/* FAB principal */}
       <button

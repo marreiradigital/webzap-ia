@@ -1,6 +1,6 @@
 import { defineBackground, browser } from '#imports';
 import { getConfig, type WebzapConfig } from '@/src/storage';
-import { resolveTask, resolveEmbed } from '@/src/ai/resolve';
+import { resolveTask, resolveEmbed, resolveTts } from '@/src/ai/resolve';
 import { getProvider } from '@/src/providers/registry';
 import { ProviderError, type ChatRequest, type ProviderCredentials, type ProviderModule } from '@/src/providers/types';
 import { activeMemories, addMemory, memoryExists } from '@/src/memory/db';
@@ -182,6 +182,15 @@ async function handle(msg: BgRequest): Promise<BgResponse> {
       }
       const vectors = await e.provider.embed(msg.texts, e.model, e.creds);
       return { ok: true, text: '', vectors };
+    }
+
+    case 'tts': {
+      const t = resolveTts(config);
+      if (!t?.provider.speak) {
+        return { ok: false, error: 'Nenhum provedor de voz (TTS) configurado. Configure OpenAI.' };
+      }
+      const audio = await t.provider.speak(msg.text, t.model, t.creds);
+      return { ok: true, text: '', audio };
     }
 
     default:

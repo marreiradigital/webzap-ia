@@ -7,6 +7,11 @@ export function getComposer(): HTMLElement | null {
   return firstMatch<HTMLElement>(document, SEL.composer);
 }
 
+/** Texto atual do campo de digitacao. */
+export function getComposerText(): string {
+  return (getComposer()?.innerText ?? '').trim();
+}
+
 /**
  * Insere o texto no campo, substituindo o conteudo atual. Usa execCommand insertText
  * para que os handlers internos do WhatsApp reconheçam a digitacao.

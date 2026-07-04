@@ -246,6 +246,53 @@
   overflow-y: auto;
 }
 
+/* Barra de ferramentas do campo de mensagem */
+.wz-tools {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--wz-bg);
+  border: 1px solid var(--wz-border);
+  border-radius: 999px;
+  box-shadow: var(--wz-shadow);
+  pointer-events: auto;
+  z-index: 2147483000;
+}
+.wz-tool {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--wz-fg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  line-height: 1;
+}
+.wz-tool:hover {
+  background: var(--wz-bg-soft);
+  color: var(--wz-accent);
+}
+.wz-tool:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.wz-tool-rec {
+  background: var(--wz-danger);
+  color: #fff;
+  animation: wz-pulse 1s ease-in-out infinite;
+}
+@keyframes wz-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
 /* Mini botao que segue a mensagem sob o cursor */
 .wz-hover-btn {
   position: fixed;

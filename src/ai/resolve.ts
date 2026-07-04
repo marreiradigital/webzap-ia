@@ -77,6 +77,22 @@ export function resolveEmbed(config: WebzapConfig): ResolvedTask | null {
   return null;
 }
 
+/** Primeiro provider com TTS (sintese de voz) configurado, ou null. */
+export function resolveTts(config: WebzapConfig): ResolvedTask | null {
+  for (const id of PROVIDER_IDS) {
+    const cfg = config.providers[id];
+    const provider = PROVIDERS[id];
+    if (cfg?.enabled && cfg.apiKey && provider.capabilities.includes('tts') && provider.speak) {
+      return {
+        provider,
+        model: provider.defaultModels.tts ?? '',
+        creds: { apiKey: cfg.apiKey, baseUrl: cfg.baseUrl },
+      };
+    }
+  }
+  return null;
+}
+
 /** Modelo efetivo: override do provider (config) > default do codigo. */
 function providerModel(
   provider: ProviderModule,

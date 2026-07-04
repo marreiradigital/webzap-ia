@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
@@ -14,8 +15,12 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   }
 });
 
-export function Markdown({ text }: { text: string }) {
-  const raw = marked.parse(text, { async: false }) as string;
-  const html = DOMPurify.sanitize(raw);
+// memo + useMemo: durante o streaming so o ULTIMO turno muda; os anteriores nao
+// re-parseiam a cada token (marked+DOMPurify rodavam para todos, a cada delta).
+export const Markdown = memo(function Markdown({ text }: { text: string }) {
+  const html = useMemo(() => {
+    const raw = marked.parse(text, { async: false }) as string;
+    return DOMPurify.sanitize(raw);
+  }, [text]);
   return <div className="wz-md" dangerouslySetInnerHTML={{ __html: html }} />;
-}
+});

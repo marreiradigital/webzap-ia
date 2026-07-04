@@ -37,10 +37,11 @@ export type BgRequest =
       kind: 'memoryAdd';
       memories: { type: 'persona' | 'preference' | 'style' | 'contact'; content: string; contact?: string }[];
     }
-  | { kind: 'embed'; texts: string[] };
+  | { kind: 'embed'; texts: string[] }
+  | { kind: 'tts'; text: string };
 
 export type BgResponse =
-  | { ok: true; text: string; vectors?: number[][] }
+  | { ok: true; text: string; vectors?: number[][]; audio?: { base64: string; mimeType: string } }
   | { ok: false; error: string };
 
 export type StreamChatInput = Omit<Extract<BgRequest, { kind: 'chat' }>, 'kind'>;

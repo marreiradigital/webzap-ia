@@ -2,11 +2,19 @@
 
 Todas as mudanças notáveis do **WebZap - IA**. Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.6.2] - 2026-07-04
+
+### Corrigido
+- **Ícone de ações por mensagem voltou a aparecer.** A tentativa da 0.6.1 (overlay no hover) não renderizava em alguns layouts. Agora o botão é **injetado em cada bolha**, detectando a bolha pelo **estilo real** (fundo colorido + cantos arredondados) — independe de classe/atributo. Sempre visível, colado na mensagem.
+
+### Adicionado
+- **Traduzir** no menu de cada mensagem (além de explicar, transcrever, descrever, pesquisar).
+- **Barra de ferramentas no campo de mensagem**: ditar (gravar áudio → transcrever → inserir), traduzir o texto digitado, melhorar/revisar o texto e ouvir (gerar áudio/TTS via OpenAI).
+
 ## [0.6.1] - 2026-07-04
 
 ### Corrigido
-- **Ícones por mensagem sumiam** e **auto-resposta não funcionava**: a detecção dependia das classes `.message-in`/`.message-out` (que o WhatsApp muda). Agora usa o atributo estável `data-id` (`true_…` = enviada, `false_…` = recebida) para direção, ancoragem do ícone de hover e detecção de nova mensagem.
-- **Envio da auto-resposta** mais confiável: espera (polling) o botão de enviar aparecer após inserir o texto, com fallback para Enter.
+- **Direção das mensagens e auto-resposta**: passou a usar o atributo estável `data-id` (`true_…` = enviada, `false_…` = recebida) em vez das classes `.message-in`/`.message-out`. Envio da auto-resposta espera o botão aparecer (polling) com fallback para Enter. _(A tentativa de restaurar o ícone por mensagem via overlay nesta versão não funcionou — corrigido na 0.6.2.)_
 
 ## [0.6.0] - 2026-07-04
 

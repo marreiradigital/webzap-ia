@@ -2,10 +2,14 @@ import { getMainNode, getMessageRows, parseRow } from './message-nodes';
 import { readHeaderTitle } from './chat-reader';
 
 // Observa novas mensagens RECEBIDAS no chat aberto e dispara a auto-resposta.
-// Guard-rails: rebaseline ao trocar de conversa (nao dispara no historico), nao
-// responde a propria mensagem, e throttle entre disparos. Ver .claude/SDD/auto-reply.md
+// Guard-rails: rebaseline ao trocar de conversa OU ao reativar (nao dispara no
+// historico nem em mensagem que chegou com o modo desligado), e nao responde a
+// propria mensagem. O throttle entre respostas fica no chamador (App), que so
+// consome cooldown quando decide responder de fato. Ver .claude/SDD/auto-reply.md
 
 export interface IncomingInfo {
+  /** Conversa em que a mensagem chegou (titulo do header no momento da deteccao). */
+  chat: string;
   text: string;
   isGroup: boolean;
 }
@@ -26,10 +30,14 @@ export function setupAutoReplyWatcher(
   let lastKey = '';
   let baselined = false;
   let lastChat = '';
-  let cooldownUntil = 0;
 
   const scan = () => {
-    if (!isActive()) return;
+    if (!isActive()) {
+      // Inativo: perde a baseline para nao disparar, ao reativar, numa mensagem
+      // que chegou enquanto o modo estava desligado.
+      baselined = false;
+      return;
+    }
 
     const chat = readHeaderTitle() ?? '';
     if (chat !== lastChat) {
@@ -53,8 +61,6 @@ export function setupAutoReplyWatcher(
 
     const parsed = parseRow(lastRow);
     if (!parsed || parsed.direction === 'out' || !parsed.text) return; // nossa msg / sem texto
-    if (Date.now() < cooldownUntil) return;
-    cooldownUntil = Date.now() + 8000; // throttle entre auto-respostas
 
     const authors = new Set(
       rows
@@ -64,10 +70,20 @@ export function setupAutoReplyWatcher(
         .map((m) => m.author),
     );
     const isGroup = authors.size > 1;
-    onIncoming({ text: parsed.text, isGroup });
+    onIncoming({ chat, text: parsed.text, isGroup });
   };
 
-  const obs = new MutationObserver(() => requestAnimationFrame(scan));
+  // rAF coalesce: varias mutacoes num mesmo frame viram UM scan.
+  let scheduled = false;
+  const schedule = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      scan();
+    });
+  };
+  const obs = new MutationObserver(schedule);
   obs.observe(document.body, { childList: true, subtree: true });
   return () => obs.disconnect();
 }

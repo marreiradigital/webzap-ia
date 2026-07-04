@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import type { Session } from './actions';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import type { Session, Turn } from './actions';
 import type { GenerationSettings } from '@/src/storage';
 import { GearIcon, SendIcon, SearchIcon, CloseIcon } from './icons';
 import { Markdown } from './Markdown';
@@ -23,6 +23,28 @@ interface PanelProps {
   onCopy: (text: string) => void;
 }
 
+// Memoizado: durante o streaming so o ultimo turno muda; os anteriores nao re-renderizam.
+const TurnView = memo(function TurnView({
+  turn,
+  onCopy,
+}: {
+  turn: Turn;
+  onCopy: (text: string) => void;
+}) {
+  return (
+    <div className={`wz-turn wz-turn-${turn.role}`}>
+      <div className="wz-turn-content">
+        {turn.role === 'assistant' ? <Markdown text={turn.content} /> : turn.content}
+      </div>
+      {turn.role === 'assistant' && (
+        <button className="wz-copy" title="Copiar" onClick={() => onCopy(turn.content)}>
+          Copiar
+        </button>
+      )}
+    </div>
+  );
+});
+
 export default function Panel({
   chatName,
   data,
@@ -38,19 +60,36 @@ export default function Panel({
   const [useSearch, setUseSearch] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
+  // Identidade estavel para o memo dos turnos (o App passa arrow inline).
+  const onCopyRef = useRef(onCopy);
+  onCopyRef.current = onCopy;
+  const stableCopy = useCallback((t: string) => onCopyRef.current(t), []);
+
   const session = data.session;
   const isSuggest = !!session?.suggestions;
   const canChat = !!session && !isSuggest;
 
-  // Rola para o fim conforme o texto chega (streaming), turnos novos ou carregamento.
+  // Rola para o fim conforme o texto chega (streaming), turnos novos ou carregamento —
+  // mas so se o usuario estiver perto do fim (nao "rouba" a rolagem de quem leu acima).
   const lastLen = session?.display[session.display.length - 1]?.content.length ?? 0;
+  const pinnedRef = useRef(true);
   useEffect(() => {
-    bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight });
+    const el = bodyRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+  useEffect(() => {
+    if (pinnedRef.current) bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight });
   }, [session?.display.length, lastLen, data.loading]);
 
   function send() {
     const q = input.trim();
     if (!q || data.loading) return;
+    pinnedRef.current = true; // enviar pergunta re-ancora a rolagem no fim
     onFollowup(q, useSearch);
     setInput('');
   }
@@ -131,20 +170,7 @@ export default function Panel({
 
         {!isSuggest &&
           session?.display.map((turn, i) => (
-            <div key={i} className={`wz-turn wz-turn-${turn.role}`}>
-              <div className="wz-turn-content">
-                {turn.role === 'assistant' ? <Markdown text={turn.content} /> : turn.content}
-              </div>
-              {turn.role === 'assistant' && (
-                <button
-                  className="wz-copy"
-                  title="Copiar"
-                  onClick={() => onCopy(turn.content)}
-                >
-                  Copiar
-                </button>
-              )}
-            </div>
+            <TurnView key={i} turn={turn} onCopy={onCopy} />
           ))}
 
         {data.loading && (
