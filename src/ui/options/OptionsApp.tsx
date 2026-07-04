@@ -214,6 +214,33 @@ export default function OptionsApp() {
           </div>
         </section>
 
+        {/* Resposta automatica */}
+        <section className="mb-8">
+          <h2 className="mb-1 text-lg font-semibold">Resposta automática</h2>
+          <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
+            O modo (desligada / sugerir / rascunho / auto-enviar) é escolhido por conversa, no menu
+            do botão flutuante dentro do WhatsApp.
+          </p>
+          <label className="block rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+            <span className="mb-1 block text-sm font-medium">
+              Em grupos, responder quando mencionarem
+            </span>
+            <input
+              type="text"
+              placeholder="Ex.: Paulo, Marreira, chefe"
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-950"
+              value={cfg.autoReply.mentions}
+              onChange={(e) =>
+                patch((c) => ({ ...c, autoReply: { ...c.autoReply, mentions: e.target.value } }))
+              }
+            />
+            <span className="mt-1 block text-xs text-neutral-500 dark:text-neutral-400">
+              Nomes/apelidos separados por vírgula. Em grupo, a IA só responde quando a mensagem cita
+              um deles (ou usa @). Em conversas privadas responde sempre.
+            </span>
+          </label>
+        </section>
+
         {/* Aprendizado / auto-treino */}
         <section className="mb-8">
           <h2 className="mb-1 text-lg font-semibold">Aprendizado (memória)</h2>

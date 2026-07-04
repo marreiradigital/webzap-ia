@@ -39,6 +39,18 @@ const AUTO_MODES: { id: AutoReplyMode; label: string }[] = [
   { id: 'autosend', label: 'Auto-enviar ⚠️' },
 ];
 
+/** Em grupo, a mensagem parece direcionada ao usuario? (@ ou nome/apelido configurado). */
+function isDirectedToMe(text: string, mentions: string): boolean {
+  if (text.includes('@')) return true;
+  const words = mentions
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (!words.length) return false;
+  const lower = text.toLowerCase();
+  return words.some((w) => lower.includes(w));
+}
+
 interface Anchor {
   row: HTMLElement;
   rect: DOMRect;
@@ -78,6 +90,9 @@ export default function App() {
   const [autoSuggestion, setAutoSuggestion] = useState<string | null>(null);
   const [warnAutosend, setWarnAutosend] = useState(false);
   const [autoTrain, setAutoTrain] = useState(false);
+  const [autoMentions, setAutoMentions] = useState('');
+  const mentionsRef = useRef('');
+  mentionsRef.current = autoMentions;
   const chatKeyRef = useRef('');
   const genTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRef = useRef(autoByChat);
@@ -92,12 +107,14 @@ export default function App() {
       setFeatures(c.features);
       setGeneration(c.generation);
       setAutoByChat(c.autoReply.byChat);
+      setAutoMentions(c.autoReply.mentions);
       setAutoTrain(c.autoTrain);
     });
     return watchConfig((c) => {
       setFeatures(c.features);
       setGeneration(c.generation);
       setAutoByChat(c.autoReply.byChat);
+      setAutoMentions(c.autoReply.mentions);
       setAutoTrain(c.autoTrain);
     });
   }, []);
@@ -346,7 +363,7 @@ export default function App() {
     const key = chatKeyRef.current;
     const mode = autoRef.current[key] ?? 'off';
     if (mode === 'off') return;
-    if (info.isGroup && !info.directed) return; // grupo: so quando mencionado (@)
+    if (info.isGroup && !isDirectedToMe(info.text, mentionsRef.current)) return; // grupo: so quando direcionado
     const ctx = readVisibleChat();
     if (!ctx || ctx.messages.length === 0) return;
     const res = await callBackground({
@@ -374,7 +391,7 @@ export default function App() {
     setAutoByChat((prev) => ({ ...prev, [key]: mode }));
     updateConfig((c) => ({
       ...c,
-      autoReply: { byChat: { ...c.autoReply.byChat, [key]: mode } },
+      autoReply: { ...c.autoReply, byChat: { ...c.autoReply.byChat, [key]: mode } },
     }));
   }
 
@@ -527,11 +544,14 @@ export default function App() {
       {/* FAB principal */}
       <button
         className="wz-fab"
-        title="WebZap - IA"
+        title={autoMode === 'off' ? 'WebZap - IA' : `WebZap - IA — auto-resposta: ${autoMode}`}
         aria-label="Abrir menu do WebZap - IA"
         onClick={() => setFabOpen((v) => !v)}
       >
         <RobotIcon size={26} />
+        {autoMode !== 'off' && (
+          <span className={`wz-fab-badge ${autoMode === 'autosend' ? 'wz-fab-badge-danger' : ''}`} />
+        )}
       </button>
 
       {fabOpen && (

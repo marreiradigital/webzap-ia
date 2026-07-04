@@ -65,6 +65,19 @@
   background: var(--wz-accent-strong);
   transform: translateY(-1px);
 }
+.wz-fab-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #f5c518;
+  border: 2px solid #fff;
+}
+.wz-fab-badge-danger {
+  background: var(--wz-danger);
+}
 
 /* Menu do FAB */
 .wz-menu {

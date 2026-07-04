@@ -46,6 +46,8 @@ export type AutoReplyMode = 'off' | 'suggest' | 'draft' | 'autosend';
 export interface AutoReplySettings {
   /** Modo por conversa (chave = nome do chat). Ausente = 'off'. */
   byChat: Record<string, AutoReplyMode>;
+  /** Palavras que contam como "direcionado a mim" em grupo (nome/apelidos), alem de @. Separadas por virgula. */
+  mentions: string;
 }
 
 export interface WebzapConfig {
@@ -77,7 +79,7 @@ export const DEFAULT_CONFIG: WebzapConfig = {
     temperature: 0.6,
     rules: '',
   },
-  autoReply: { byChat: {} },
+  autoReply: { byChat: {}, mentions: '' },
   autoTrain: false,
 };
 
@@ -94,7 +96,7 @@ export async function getConfig(): Promise<WebzapConfig> {
     ...raw,
     features: { ...DEFAULT_CONFIG.features, ...raw?.features },
     generation: { ...DEFAULT_CONFIG.generation, ...raw?.generation },
-    autoReply: { byChat: { ...raw?.autoReply?.byChat } },
+    autoReply: { byChat: { ...raw?.autoReply?.byChat }, mentions: raw?.autoReply?.mentions ?? '' },
     autoTrain: raw?.autoTrain ?? false,
     providers: { ...raw?.providers },
     tasks: { ...raw?.tasks },

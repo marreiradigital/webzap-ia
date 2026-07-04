@@ -8,8 +8,6 @@ import { readHeaderTitle } from './chat-reader';
 export interface IncomingInfo {
   text: string;
   isGroup: boolean;
-  /** Em grupo: parece direcionada ao usuario (mencao @). */
-  directed: boolean;
 }
 
 function messageKey(row: HTMLElement): string {
@@ -63,8 +61,7 @@ export function setupAutoReplyWatcher(
         .map((m) => m.author),
     );
     const isGroup = authors.size > 1;
-    const directed = (lastRow.textContent ?? '').includes('@');
-    onIncoming({ text: parsed.text, isGroup, directed });
+    onIncoming({ text: parsed.text, isGroup });
   };
 
   const obs = new MutationObserver(() => requestAnimationFrame(scan));
