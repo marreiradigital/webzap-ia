@@ -2,7 +2,7 @@
   "name": "webzap-ia",
   "description": "WebZap - IA: extensao Chrome que injeta funcionalidades de IA no WhatsApp Web (resumir, transcrever audios, sugerir e responder).",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.7.1",
   "type": "module",
   "scripts": {
     "dev": "wxt",

@@ -2,6 +2,11 @@
 
 Todas as mudanças notáveis do **WebZap - IA**. Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.7.1] - 2026-07-04
+
+### Corrigido
+- **Transcrever áudio sem precisar ouvir**: a extensão agora carrega o áudio sozinha — clica no play já com o som mutado, espera o WhatsApp baixar/descriptografar, pausa pelo próprio controle do WhatsApp e restaura o volume. Antes era preciso tocar o áudio uma vez para a transcrição funcionar, o que anulava o propósito. Observação: o WhatsApp pode marcar a nota de voz como "ouvida" para o remetente (comportamento do próprio WhatsApp ao carregar o áudio).
+
 ## [0.7.0] - 2026-07-04
 
 ### Adicionado
