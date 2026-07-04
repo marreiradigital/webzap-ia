@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { browser } from '#imports';
-import { PROVIDER_IDS, PROVIDERS } from '@/src/providers/registry';
+import { PROVIDERS } from '@/src/providers/registry';
+import { eligibleProviders } from '@/src/ai/resolve';
 import { getConfig, updateConfig, type WebzapConfig } from '@/src/storage';
 
 export default function PopupApp() {
@@ -18,9 +19,7 @@ export default function PopupApp() {
     setCfg(next);
   }
 
-  const configured = cfg
-    ? PROVIDER_IDS.filter((id) => cfg.providers[id]?.enabled && cfg.providers[id]?.apiKey)
-    : [];
+  const chain = cfg ? eligibleProviders(cfg) : [];
 
   return (
     <div className="w-[320px] bg-white p-4 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
@@ -61,10 +60,16 @@ export default function PopupApp() {
           </button>
 
           <div className="mb-3 rounded-xl border border-neutral-200 p-3 text-xs dark:border-neutral-800">
-            {configured.length > 0 ? (
+            {chain.length > 0 ? (
               <span className="text-neutral-600 dark:text-neutral-300">
-                Provedores ativos:{' '}
-                <strong>{configured.map((id) => PROVIDERS[id].label).join(', ')}</strong>
+                Principal: <strong>{PROVIDERS[chain[0].id].label}</strong>
+                {chain.length > 1 && (
+                  <>
+                    {' '}
+                    · Reservas:{' '}
+                    <strong>{chain.slice(1).map((p) => PROVIDERS[p.id].label).join(', ')}</strong>
+                  </>
+                )}
               </span>
             ) : (
               <span className="text-amber-600 dark:text-amber-400">

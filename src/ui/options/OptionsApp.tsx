@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { PROVIDER_IDS, PROVIDERS } from '@/src/providers/registry';
 import type { ProviderId } from '@/src/providers/types';
+import { eligibleProviders } from '@/src/ai/resolve';
 import {
   getConfig,
   setConfig,
@@ -9,6 +10,11 @@ import {
   type WebzapConfig,
 } from '@/src/storage';
 import { callBackground } from '@/src/messaging';
+
+/** Rotulo da posicao na cadeia: 0 = Principal, 1+ = Reserva N. */
+function roleLabel(index: number): string {
+  return index === 0 ? 'Principal' : `Reserva ${index}`;
+}
 
 const TASK_LABELS: Record<TaskKind, string> = {
   summarize: 'Resumir conversa',
@@ -93,25 +99,43 @@ export default function OptionsApp() {
             navegador (armazenamento local da extensão).
           </p>
           <div className="space-y-4">
-            {PROVIDER_IDS.map((id) => (
-              <ProviderCard
-                key={id}
-                id={id}
-                value={cfg.providers[id]}
-                onChange={(pc) =>
-                  patch((c) => ({ ...c, providers: { ...c.providers, [id]: pc } }))
-                }
-              />
-            ))}
+            {PROVIDER_IDS.map((id) => {
+              const chainIdx = eligibleProviders(cfg).findIndex((p) => p.id === id);
+              return (
+                <ProviderCard
+                  key={id}
+                  id={id}
+                  role={chainIdx >= 0 ? roleLabel(chainIdx) : undefined}
+                  value={cfg.providers[id]}
+                  onChange={(pc) =>
+                    patch((c) => ({ ...c, providers: { ...c.providers, [id]: pc } }))
+                  }
+                />
+              );
+            })}
           </div>
+        </section>
+
+        {/* Prioridade / failover */}
+        <section className="mb-8">
+          <h2 className="mb-1 text-lg font-semibold">Prioridade e reservas (failover)</h2>
+          <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
+            O <strong>principal</strong> atende todas as chamadas. Se ele falhar (erro, limite,
+            fora do ar), a <strong>Reserva 1</strong> assume automaticamente; se ela também
+            falhar, a Reserva 2 — e assim por diante, na mesma chamada.
+          </p>
+          <PrioritySection
+            cfg={cfg}
+            onReorder={(order) => patch((c) => ({ ...c, providerOrder: order }))}
+          />
         </section>
 
         {/* Modelo por tarefa */}
         <section className="mb-8">
           <h2 className="mb-1 text-lg font-semibold">Modelo por tarefa</h2>
           <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
-            Opcional. Escolha qual provedor e modelo usar em cada tarefa. Em "Automático", usa o
-            primeiro provedor habilitado e compatível.
+            Opcional. Escolha qual provedor e modelo usar em cada tarefa. Em "Automático", segue
+            a ordem de prioridade acima (principal → reservas).
           </p>
           <div className="space-y-3">
             {(Object.keys(TASK_LABELS) as TaskKind[]).map((task) => (
@@ -280,12 +304,107 @@ export default function OptionsApp() {
   );
 }
 
+function PrioritySection({
+  cfg,
+  onReorder,
+}: {
+  cfg: WebzapConfig;
+  onReorder: (order: ProviderId[]) => void;
+}) {
+  const eligible = eligibleProviders(cfg);
+
+  if (eligible.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-neutral-300 p-5 text-center text-sm text-neutral-500 dark:border-neutral-700">
+        Nenhum provedor apto ainda. Habilite um provedor com chave de API acima para definir o
+        principal e as reservas.
+      </div>
+    );
+  }
+
+  const order = eligible.map((p) => p.id);
+
+  function move(index: number, delta: number) {
+    const next = [...order];
+    const target = index + delta;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    onReorder(next);
+  }
+
+  function makePrimary(index: number) {
+    if (index === 0) return;
+    const next = [...order];
+    const [id] = next.splice(index, 1);
+    next.unshift(id);
+    onReorder(next);
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+      {eligible.map((p, i) => (
+        <div
+          key={p.id}
+          className={`flex items-center gap-3 px-4 py-3 ${
+            i > 0 ? 'border-t border-neutral-200 dark:border-neutral-800' : ''
+          }`}
+        >
+          <span
+            className={`w-24 shrink-0 rounded-full px-2 py-0.5 text-center text-[11px] font-semibold uppercase tracking-wide ${
+              i === 0
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
+            }`}
+          >
+            {roleLabel(i)}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">{PROVIDERS[p.id].label}</span>
+          {i > 0 && (
+            <button
+              type="button"
+              onClick={() => makePrimary(i)}
+              className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs hover:border-emerald-500 hover:text-emerald-600 dark:border-neutral-700"
+            >
+              Tornar principal
+            </button>
+          )}
+          <div className="flex gap-1">
+            <button
+              type="button"
+              aria-label={`Subir ${PROVIDERS[p.id].label} na prioridade`}
+              disabled={i === 0}
+              onClick={() => move(i, -1)}
+              className="h-8 w-8 rounded-lg border border-neutral-300 text-sm hover:border-emerald-500 disabled:opacity-30 dark:border-neutral-700"
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              aria-label={`Descer ${PROVIDERS[p.id].label} na prioridade`}
+              disabled={i === eligible.length - 1}
+              onClick={() => move(i, 1)}
+              className="h-8 w-8 rounded-lg border border-neutral-300 text-sm hover:border-emerald-500 disabled:opacity-30 dark:border-neutral-700"
+            >
+              ↓
+            </button>
+          </div>
+        </div>
+      ))}
+      <div className="border-t border-neutral-200 px-4 py-2 text-xs text-neutral-400 dark:border-neutral-800">
+        A ordem vale para todas as tarefas. Overrides em "Modelo por tarefa" têm precedência.
+      </div>
+    </div>
+  );
+}
+
 function ProviderCard({
   id,
+  role,
   value,
   onChange,
 }: {
   id: ProviderId;
+  role?: string;
   value: ProviderConfig | undefined;
   onChange: (pc: ProviderConfig) => void;
 }) {
@@ -313,6 +432,17 @@ function ProviderCard({
           <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
             {provider.capabilities.includes('transcribe') ? 'chat + áudio' : 'chat'}
           </span>
+          {role && (
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                role === 'Principal'
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                  : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
+              }`}
+            >
+              {role}
+            </span>
+          )}
         </div>
         <Switch checked={pc.enabled} onChange={(v) => onChange({ ...pc, enabled: v })} />
       </div>
