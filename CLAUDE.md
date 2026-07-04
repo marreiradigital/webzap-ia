@@ -53,7 +53,13 @@ src/messaging.ts            -> protocolo tipado content <-> background
 - `pnpm compile` (typecheck) deve passar antes de commitar. Stage por caminho específico (nunca `git add -A`).
 - Terminar com: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
 
+## Painel-chat e geração
+
+- O painel de resultados é um **chat** (`src/ui/content/Panel.tsx`): após uma ação dá para continuar perguntando (`followUp` em `actions.ts`). Cada conversa tem seu painel (indexado por `readHeaderTitle()`); trocar de conversa troca o painel.
+- Botões de IA são **injetados por mensagem** (`src/wa/inject-buttons.ts`, light DOM) — colados à bolha e rolam junto.
+- `config.generation` (`maxTokens`/`temperature`/`rules`) é editável no painel (engrenagem) e nas Opções; aplicada no `background.ts` (rules vira `system` extra). `maxTokens` padrão 2048 para não cortar respostas.
+
 ## Roadmap
 
-- **Fase 1 (feito):** resumir, explicar, transcrever, sugerir, multi-provedor, options/popup.
-- **Fase 2:** pesquisar online, Persona & Memória (Dexie), resposta automática (3 modos). Specs em [`.claude/SDD/`](./.claude/SDD/).
+- **Fase 1 (feito):** resumir, explicar, transcrever, descrever imagem, sugerir, **pesquisar online**, painel-chat por conversa, config de geração, multi-provedor, options/popup.
+- **Fase 2:** Persona & Memória (Dexie), resposta automática (3 modos). Specs em [`.claude/SDD/`](./.claude/SDD/).

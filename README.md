@@ -4,17 +4,18 @@ Extensão de navegador (Chrome/Edge, Manifest V3) que injeta funcionalidades de 
 
 > ⚠️ **Aviso de conformidade.** Automatizar o WhatsApp Web pode violar os [Termos de Uso do WhatsApp](https://www.whatsapp.com/legal/terms-of-service) e, em casos de envio automático, resultar em **bloqueio da conta**. Esta extensão lê apenas o que está visível na tela e **nunca envia mensagens sozinha** na versão atual — as sugestões são inseridas no campo para você revisar e enviar. Use por sua conta e risco.
 
-## ✨ Funcionalidades (v1 / MVP)
+## ✨ Funcionalidades (v1)
 
-- **Resumir a conversa visível** — resumo curto, médio ou detalhado do que está na tela (grupo ou conversa privada).
-- **Explicar uma mensagem** — passe o mouse sobre qualquer mensagem e clique no ícone **IA** → "Explicar do que se trata".
-- **Transcrever áudios** — transcrição de notas de voz (requer OpenAI ou Gemini).
-- **Sugerir resposta** — gera 2–3 sugestões com base na conversa; clique para inserir no campo (você revisa e envia).
-- **Multi-provedor** — configure Anthropic, OpenAI, Gemini e/ou OpenRouter, e escolha qual usar por tarefa.
+- **Resumir a conversa visível** — resumo curto, médio ou detalhado (grupo ou conversa privada).
+- **Ações por mensagem** — cada mensagem ganha um botão de IA colado a ela: **Explicar**, **Transcrever áudio**, **Descrever imagem** e **Pesquisar online**.
+- **Painel-chat** — os resultados abrem num chat: dá para **continuar perguntando** (mais contexto, detalhar) e ligar a **busca online** na resposta. Cada conversa tem o seu painel.
+- **Pesquisar online** — respostas atualizadas com fontes (Anthropic web search ou Gemini grounding).
+- **Sugerir resposta** — 2–3 sugestões; clique para inserir no campo (você revisa e envia).
+- **Controles de geração** — limite de tokens, temperatura e **regras/instruções personalizadas**, no painel ou nas Opções.
+- **Multi-provedor** — Anthropic, OpenAI, Gemini e/ou OpenRouter, com escolha por tarefa.
 
 ### Planejado (Fase 2)
 
-- Pesquisar online a partir de uma mensagem.
 - **Persona & Memória** — uma página de "entrevista" onde a IA aprende seu estilo/contexto e guarda como memória local (para respostas mais suas).
 - **Resposta automática** com 3 modos (sugestão / rascunho para revisar / auto-envio), sempre opt-in e com aviso de banimento.
 
@@ -51,12 +52,12 @@ Para carregar manualmente: abra `chrome://extensions`, ative o **Modo do desenvo
 
 As chaves de API ficam **apenas no seu navegador** (armazenamento local da extensão). Todo o `fetch` aos provedores acontece no service worker da extensão — as chaves nunca são expostas na página do WhatsApp.
 
-| Provedor   | Chat | Transcrição de áudio |
-|------------|:----:|:--------------------:|
-| Anthropic  |  ✅  |          —           |
-| OpenAI     |  ✅  |          ✅          |
-| Gemini     |  ✅  |          ✅          |
-| OpenRouter |  ✅  |          —           |
+| Provedor   | Chat | Transcrição | Imagem (visão) | Busca online |
+|------------|:----:|:-----------:|:--------------:|:------------:|
+| Anthropic  |  ✅  |     —       |       ✅       |      ✅      |
+| OpenAI     |  ✅  |     ✅      |       ✅       |      —       |
+| Gemini     |  ✅  |     ✅      |       ✅       |      ✅      |
+| OpenRouter |  ✅  |     —       |     depende    |      —       |
 
 ## 🗂️ Estrutura
 

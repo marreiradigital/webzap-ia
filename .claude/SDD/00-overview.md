@@ -24,6 +24,8 @@ Usar IA em conversas do WhatsApp hoje exige copiar texto para outra aba, colar, 
 | Ações por mensagem (explicar) | [`per-message-actions.md`](./per-message-actions.md) | 1 |
 | Transcrição de áudio | [`audio-transcription.md`](./audio-transcription.md) | 1 |
 | Sugestão de resposta | [`reply-suggestions.md`](./reply-suggestions.md) | 1 |
+| Painel-chat (follow-up, por conversa, geração) | [`chat-panel.md`](./chat-panel.md) | 1 |
+| Pesquisar online | [`search-online.md`](./search-online.md) | 1 |
 | Resposta automática | [`auto-reply.md`](./auto-reply.md) | 2 |
 | Persona & Memória | [`persona-memory.md`](./persona-memory.md) | 2 |
 

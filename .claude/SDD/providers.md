@@ -18,12 +18,14 @@ Erros normalizados em `ProviderError` com mensagem legível em pt-BR ([`src/prov
 
 ## Provedores implementados
 
-| id | Chat | Transcrição | Notas |
-|----|------|-------------|-------|
-| `anthropic` | `/v1/messages` | — | header `anthropic-dangerous-direct-browser-access: true`; `system` separado dos turnos |
-| `openai` | `/v1/chat/completions` | `/v1/audio/transcriptions` (multipart) | |
-| `gemini` | `:generateContent` | `:generateContent` com `inline_data` (áudio base64) | roles `user`/`model` |
-| `openrouter` | `/api/v1/chat/completions` | — | compatível OpenAI; headers `HTTP-Referer`/`X-Title` |
+| id | Chat | Transcrição | Busca web | Notas |
+|----|------|-------------|-----------|-------|
+| `anthropic` | `/v1/messages` | — | ✅ `web_search_20250305` | header `anthropic-dangerous-direct-browser-access: true`; `system` separado |
+| `openai` | `/v1/chat/completions` | `/v1/audio/transcriptions` | — | também faz `vision` |
+| `gemini` | `:generateContent` | `:generateContent` + `inline_data` | ✅ `google_search` | roles `user`/`model` |
+| `openrouter` | `/api/v1/chat/completions` | — | — | compatível OpenAI; `HTTP-Referer`/`X-Title` |
+
+Capacidades: `chat`, `transcribe`, `vision`, `search`. `ChatRequest` carrega `images` (vision) e `search` (busca web). O background aplica a config de geração (`maxTokens`, `temperature`, `rules`) — ver [`chat-panel.md`](./chat-panel.md).
 
 Chat compatível com OpenAI é compartilhado em [`openai-compatible.ts`](../../src/providers/openai-compatible.ts) (reuso entre `openai` e `openrouter`).
 
