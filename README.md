@@ -1,6 +1,6 @@
 # WebZap - IA
 
-[![Versão](https://img.shields.io/badge/vers%C3%A3o-0.6.0-25D366)](CHANGELOG.md)
+[![Versão](https://img.shields.io/badge/vers%C3%A3o-0.6.1-25D366)](CHANGELOG.md)
 [![Stars](https://img.shields.io/github/stars/marreiradigital/webzap-ia?style=flat&logo=github&color=25D366)](https://github.com/marreiradigital/webzap-ia/stargazers)
 [![Forks](https://img.shields.io/github/forks/marreiradigital/webzap-ia?style=flat&logo=github&color=25D366)](https://github.com/marreiradigital/webzap-ia/network/members)
 [![Último commit](https://img.shields.io/github/last-commit/marreiradigital/webzap-ia?color=25D366)](https://github.com/marreiradigital/webzap-ia/commits/main)
@@ -9,7 +9,7 @@ Extensão de navegador (Chrome/Edge, Manifest V3) que injeta funcionalidades de 
 
 🌐 **Site:** https://marreiradigital.github.io/webzap-ia/ · 📦 **Download:** [webzap-ia.zip](https://marreiradigital.github.io/webzap-ia/webzap-ia.zip)
 
-> ⚠️ **Aviso de conformidade.** Automatizar o WhatsApp Web pode violar os [Termos de Uso do WhatsApp](https://www.whatsapp.com/legal/terms-of-service) e, em casos de envio automático, resultar em **bloqueio da conta**. Esta extensão lê apenas o que está visível na tela e **nunca envia mensagens sozinha** na versão atual — as sugestões são inseridas no campo para você revisar e enviar. Use por sua conta e risco.
+> ⚠️ **Aviso de conformidade.** Automatizar o WhatsApp Web pode violar os [Termos de Uso do WhatsApp](https://www.whatsapp.com/legal/terms-of-service) e, no modo auto-enviar, resultar em **bloqueio da conta**. Por padrão a extensão só lê o que está visível e insere sugestões no campo para você revisar; o envio automático é **opt-in por conversa** e exige aceitar um aviso. Use por sua conta e risco.
 
 ## ✨ Funcionalidades (v1)
 
@@ -21,10 +21,11 @@ Extensão de navegador (Chrome/Edge, Manifest V3) que injeta funcionalidades de 
 - **Controles de geração** — limite de tokens, temperatura e **regras/instruções personalizadas**, no painel ou nas Opções.
 - **Multi-provedor** — Anthropic, OpenAI, Gemini e/ou OpenRouter, com escolha por tarefa.
 
-### Planejado (Fase 2)
+### Também inclui (Fase 2)
 
-- **Persona & Memória** — uma página de "entrevista" onde a IA aprende seu estilo/contexto e guarda como memória local (para respostas mais suas).
-- **Resposta automática** com 3 modos (sugestão / rascunho para revisar / auto-envio), sempre opt-in e com aviso de banimento.
+- **Persona & Memória** — página de "entrevista" onde a IA aprende seu estilo/contexto e guarda como memória local (para respostas mais suas), com auto-treino opcional.
+- **Resposta automática** com 3 modos por conversa (sugestão / rascunho para revisar / auto-envio), sempre opt-in e com aviso de banimento.
+- **Streaming** (escrita ao vivo) e **Markdown** renderizado nas respostas.
 
 ## 🧱 Stack
 

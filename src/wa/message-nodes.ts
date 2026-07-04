@@ -24,7 +24,22 @@ export function parsePrePlain(pre: string | null | undefined): {
   return { author: '' };
 }
 
+/** Direcao via data-id do WhatsApp ("true_..." = enviada, "false_..." = recebida). */
+export function directionFromDataId(el: Element | null): Direction | null {
+  const holder =
+    (el?.closest('[data-id]') as HTMLElement | null) ??
+    (el?.querySelector?.('[data-id]') as HTMLElement | null) ??
+    null;
+  const id = holder?.getAttribute('data-id') ?? '';
+  if (id.startsWith('true_')) return 'out';
+  if (id.startsWith('false_')) return 'in';
+  return null;
+}
+
 function directionOf(el: HTMLElement): Direction {
+  const byId = directionFromDataId(el);
+  if (byId) return byId;
+  // Fallback (classes ofuscadas mudam com frequencia).
   if (el.closest(SEL.bubbleOut) || el.querySelector(SEL.bubbleOut)) return 'out';
   return 'in';
 }
@@ -80,7 +95,7 @@ export function collectMessages(main: HTMLElement = getMainNode()): WaMessage[] 
     .map((el): WaMessage => ({
       author: '',
       text: (el.innerText ?? '').trim(),
-      direction: el.closest(SEL.bubbleOut) ? 'out' : 'in',
+      direction: directionFromDataId(el) ?? 'in',
       kind: 'text',
     }))
     .filter((m) => m.text);

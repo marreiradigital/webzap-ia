@@ -155,10 +155,12 @@ export default function App() {
         return;
       }
       const main = document.getElementById('main');
-      const bubble = t.closest?.('.message-in, .message-out') as HTMLElement | null;
-      if (main && bubble && main.contains(bubble)) {
+      const container = t.closest?.('[data-id]') as HTMLElement | null;
+      const id = container?.getAttribute('data-id') ?? '';
+      const isMsg = /^(true|false)_/.test(id);
+      if (main && container && isMsg && main.contains(container)) {
         if (hideTimer.current) clearTimeout(hideTimer.current);
-        setHover({ el: bubble, out: bubble.matches('.message-out') });
+        setHover({ el: container, out: id.startsWith('true_') });
       } else {
         if (hideTimer.current) clearTimeout(hideTimer.current);
         hideTimer.current = setTimeout(() => setHover(null), 250);

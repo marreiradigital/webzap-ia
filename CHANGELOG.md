@@ -2,6 +2,12 @@
 
 Todas as mudanças notáveis do **WebZap - IA**. Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.6.1] - 2026-07-04
+
+### Corrigido
+- **Ícones por mensagem sumiam** e **auto-resposta não funcionava**: a detecção dependia das classes `.message-in`/`.message-out` (que o WhatsApp muda). Agora usa o atributo estável `data-id` (`true_…` = enviada, `false_…` = recebida) para direção, ancoragem do ícone de hover e detecção de nova mensagem.
+- **Envio da auto-resposta** mais confiável: espera (polling) o botão de enviar aparecer após inserir o texto, com fallback para Enter.
+
 ## [0.6.0] - 2026-07-04
 
 ### Adicionado

@@ -33,6 +33,13 @@ export function insertIntoComposer(text: string): boolean {
   return true;
 }
 
+function pressEnter(box: HTMLElement) {
+  box.focus();
+  const opts = { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 };
+  box.dispatchEvent(new KeyboardEvent('keydown', opts));
+  box.dispatchEvent(new KeyboardEvent('keyup', opts));
+}
+
 /** Clica no botao de enviar (ou pressiona Enter no campo). */
 export function clickSend(): boolean {
   const btn = firstMatch<HTMLElement>(document, SEL.sendButton);
@@ -40,20 +47,31 @@ export function clickSend(): boolean {
     (btn.closest('button') ?? btn).click();
     return true;
   }
-  // Fallback: Enter no campo de digitacao.
   const box = getComposer();
   if (!box) return false;
-  box.focus();
-  const opts = { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 };
-  box.dispatchEvent(new KeyboardEvent('keydown', opts));
-  box.dispatchEvent(new KeyboardEvent('keyup', opts));
+  pressEnter(box);
   return true;
 }
 
-/** Insere o texto e envia. USADO SO no modo auto-enviar (opt-in, com aviso). */
+/** Insere o texto e envia. USADO SO no modo auto-enviar (opt-in, com aviso).
+ *  O botao de enviar so aparece depois que o WhatsApp registra o texto, entao
+ *  esperamos ele aparecer (polling) antes de clicar; fallback = Enter. */
 export function sendMessage(text: string): boolean {
   if (!insertIntoComposer(text)) return false;
-  // Pequeno atraso para o WhatsApp registrar o texto antes de enviar.
-  setTimeout(() => clickSend(), 250);
+  let tries = 0;
+  const attempt = () => {
+    const btn = firstMatch<HTMLElement>(document, SEL.sendButton);
+    if (btn) {
+      (btn.closest('button') ?? btn).click();
+      return;
+    }
+    if (tries++ < 14) {
+      setTimeout(attempt, 150);
+      return;
+    }
+    const box = getComposer();
+    if (box) pressEnter(box);
+  };
+  setTimeout(attempt, 200);
   return true;
 }

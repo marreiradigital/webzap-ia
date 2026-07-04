@@ -11,6 +11,9 @@ export interface IncomingInfo {
 }
 
 function messageKey(row: HTMLElement): string {
+  // data-id e unico por mensagem — deteccao de "nova mensagem" precisa.
+  const id = row.querySelector('[data-id]')?.getAttribute('data-id');
+  if (id) return id;
   const pre = row.querySelector('[data-pre-plain-text]')?.getAttribute('data-pre-plain-text') ?? '';
   const text = row.querySelector('.selectable-text')?.textContent ?? '';
   return `${pre}|${text.slice(0, 60)}`;
