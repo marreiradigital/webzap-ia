@@ -1,0 +1,254 @@
+/* Estilos da UI injetada no WhatsApp Web. Escopados no shadow root (prefixo .wz-).
+   CSS puro (nao Tailwind) para evitar o problema de variaveis :root do Tailwind v4
+   dentro de shadow DOM. Overlay por CSS, sem tocar no scroll da pagina. */
+
+:host {
+  --wz-accent: #25d366;
+  --wz-accent-strong: #1da851;
+  --wz-bg: #ffffff;
+  --wz-bg-soft: #f5f6f6;
+  --wz-fg: #111b21;
+  --wz-fg-soft: #667781;
+  --wz-border: #e9edef;
+  --wz-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  --wz-danger: #e11d48;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :host {
+    --wz-bg: #233138;
+    --wz-bg-soft: #182229;
+    --wz-fg: #e9edef;
+    --wz-fg-soft: #8696a0;
+    --wz-border: #2a3942;
+    --wz-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.wz-root {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  color: var(--wz-fg);
+}
+
+.wz-root * {
+  box-sizing: border-box;
+}
+
+/* Botao flutuante principal (FAB) */
+.wz-fab {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(90px, env(safe-area-inset-bottom));
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: var(--wz-accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: var(--wz-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.wz-fab:hover {
+  background: var(--wz-accent-strong);
+  transform: translateY(-1px);
+}
+
+/* Menu do FAB */
+.wz-menu {
+  position: fixed;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 24px));
+  background: var(--wz-bg);
+  border: 1px solid var(--wz-border);
+  border-radius: 12px;
+  box-shadow: var(--wz-shadow);
+  padding: 6px;
+  pointer-events: auto;
+  overflow: hidden;
+}
+.wz-menu-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--wz-fg-soft);
+  padding: 8px 10px 4px;
+}
+.wz-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--wz-fg);
+  text-align: left;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  min-height: 44px;
+}
+.wz-menu-item:hover {
+  background: var(--wz-bg-soft);
+}
+.wz-menu-item[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Mini botao que segue a mensagem sob o cursor */
+.wz-hover-btn {
+  position: fixed;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--wz-border);
+  background: var(--wz-bg);
+  color: var(--wz-accent);
+  font-weight: 700;
+  font-size: 11px;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: var(--wz-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wz-hover-btn:hover {
+  border-color: var(--wz-accent);
+}
+
+/* Painel lateral de resultados */
+.wz-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100dvh;
+  width: min(400px, 92vw);
+  background: var(--wz-bg);
+  border-left: 1px solid var(--wz-border);
+  box-shadow: var(--wz-shadow);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  animation: wz-slide-in 0.16s ease;
+}
+@keyframes wz-slide-in {
+  from { transform: translateX(16px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.wz-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--wz-border);
+}
+.wz-panel-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+.wz-panel-sub {
+  font-size: 12px;
+  color: var(--wz-fg-soft);
+  margin-top: 2px;
+}
+.wz-panel-body {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wz-panel-foot {
+  padding: 12px 16px;
+  border-top: 1px solid var(--wz-border);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wz-icon-btn {
+  border: none;
+  background: transparent;
+  color: var(--wz-fg-soft);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  min-width: 32px;
+  min-height: 32px;
+  font-size: 16px;
+}
+.wz-icon-btn:hover {
+  background: var(--wz-bg-soft);
+  color: var(--wz-fg);
+}
+
+.wz-btn {
+  border: 1px solid var(--wz-border);
+  background: var(--wz-bg-soft);
+  color: var(--wz-fg);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  min-height: 40px;
+}
+.wz-btn:hover { border-color: var(--wz-accent); }
+.wz-btn-primary {
+  background: var(--wz-accent);
+  border-color: var(--wz-accent);
+  color: #fff;
+}
+.wz-btn-primary:hover { background: var(--wz-accent-strong); }
+
+/* Sugestoes de resposta */
+.wz-suggestion {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--wz-border);
+  background: var(--wz-bg-soft);
+  color: var(--wz-fg);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+.wz-suggestion:hover { border-color: var(--wz-accent); }
+
+.wz-error { color: var(--wz-danger); }
+
+.wz-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--wz-border);
+  border-top-color: var(--wz-accent);
+  border-radius: 50%;
+  animation: wz-spin 0.7s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+@keyframes wz-spin { to { transform: rotate(360deg); } }
+
+.wz-hint {
+  font-size: 12px;
+  color: var(--wz-fg-soft);
+  margin-top: 8px;
+}

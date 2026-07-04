@@ -1,0 +1,24 @@
+# dependencies
+node_modules
+
+# wxt
+.wxt
+.output
+web-ext.config.ts
+stats.html
+stats-*.json
+
+# build
+dist
+
+# env / segredos (nunca commitar chaves)
+.env
+.env.*
+*.local
+
+# logs / editor
+*.log
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json

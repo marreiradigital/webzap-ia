@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+
+/* Rede de seguranca: reserva o espaco da scrollbar para nunca haver "pulo" de tela. */
+html {
+  scrollbar-gutter: stable;
+}
