@@ -1,5 +1,5 @@
 import { SEL, firstMatch } from './selectors';
-import { getMainNode, getMessageRows, parseRow } from './message-nodes';
+import { getMainNode, collectMessages } from './message-nodes';
 import type { ChatContext } from './types';
 
 // Le a conversa VISIVEL (o que esta rolado/renderizado) do chat aberto e devolve
@@ -13,11 +13,8 @@ export function readHeaderTitle(): string | null {
 
 export function readVisibleChat(): ChatContext | null {
   const main = getMainNode();
-  if (!main) return null;
-
   const chatName = readHeaderTitle() ?? 'Conversa';
-  const rows = getMessageRows(main);
-  const messages = rows.map(parseRow).filter((m): m is NonNullable<typeof m> => m != null);
+  const messages = collectMessages(main);
 
   // Heuristica de grupo: mais de um autor distinto entre as mensagens recebidas.
   const authors = new Set(

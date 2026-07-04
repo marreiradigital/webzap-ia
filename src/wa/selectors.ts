@@ -13,16 +13,34 @@ export const SEL = {
   ],
   /** Linha de mensagem (cada bolha fica em um role="row"). */
   messageRow: 'div[role="row"]',
+  /** Bolha da mensagem (usada para ancorar o hover quando role="row" nao casa). */
+  messageBubble: '.message-in, .message-out',
   /** Container do texto copiavel; carrega o atributo data-pre-plain-text. */
   copyableText: 'div.copyable-text',
   prePlainAttr: 'data-pre-plain-text',
+  /** Seletor pronto para achar qualquer bloco de mensagem (o mais estavel). */
+  prePlain: '[data-pre-plain-text]',
   /** Span com o texto da mensagem (varios fallbacks por causa da ofuscacao). */
-  textSpan: ['span.selectable-text span', 'span.selectable-text', 'span._ao3e'],
+  textSpan: ['span.selectable-text', '.selectable-text', 'span._ao3e', '.copyable-text > span'],
   bubbleIn: '.message-in',
   bubbleOut: '.message-out',
   /** Elemento de audio de nota de voz (existe apos o WhatsApp carregar o blob). */
   audio: 'audio',
-  audioIcon: ['span[data-icon="audio-play"]', 'span[data-icon="ptt-status"]', 'button[aria-label*="udio" i]'],
+  audioIcon: [
+    '[data-icon="audio-play"]',
+    '[data-icon="audio-pause"]',
+    '[data-icon="ptt-status"]',
+    '[data-icon*="ptt" i]',
+    'button[aria-label*="udio" i]',
+  ],
+  /** Imagem enviada (blob), ignorando emojis e figurinhas. */
+  imageEl: 'img[src^="blob:"]:not(.emoji)',
+  imageIcon: ['[data-icon="media-download"]', '[data-icon*="image" i]'],
+  /** Video enviado. */
+  videoEl: 'video',
+  videoIcon: ['[data-icon="media-play"]', '[data-icon*="video" i]'],
+  /** Documento (PDF, etc.). */
+  documentIcon: ['[data-icon*="document" i]', '[data-icon="poll"]'],
   /** Campo de digitacao (contenteditable) no rodape. */
   composer: [
     'footer div[contenteditable="true"][data-tab]',
