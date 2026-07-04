@@ -36,6 +36,45 @@ function scoreMemory(m: Memory, contact: string | undefined, queryWords: string[
   return score;
 }
 
+export function cosine(a: number[], b: number[]): number {
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  if (na === 0 || nb === 0) return 0;
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
+}
+
+/** Selecao semantica: similaridade de cosseno com o vetor da consulta + boosts. */
+export function selectRelevantSemantic(
+  memories: Memory[],
+  queryVec: number[],
+  opts: { contact?: string; limit?: number } = {},
+): Memory[] {
+  const limit = opts.limit ?? 12;
+  const contact = opts.contact?.toLowerCase();
+  return memories
+    .filter((m) => !m.archived)
+    .map((m) => {
+      let s = m.embedding?.length ? cosine(m.embedding, queryVec) : 0;
+      if (m.type === 'contact') {
+        if (contact && m.contact && m.contact.toLowerCase() === contact) s += 0.5;
+        else s -= 0.4;
+      } else {
+        s += 0.15; // leve boost para persona/preferencia/estilo (perfil base)
+      }
+      return { m, s };
+    })
+    .sort((a, b) => b.s - a.s || (b.m.updatedAt ?? 0) - (a.m.updatedAt ?? 0))
+    .slice(0, limit)
+    .map((x) => x.m);
+}
+
 export function selectRelevant(
   memories: Memory[],
   opts: { contact?: string; query?: string; limit?: number } = {},

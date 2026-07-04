@@ -25,6 +25,12 @@ async function askAI(messages: ChatMessage[]): Promise<string> {
   return res.text;
 }
 
+/** Embedding do texto para busca semantica (undefined se nao houver provedor). */
+async function embedText(text: string): Promise<number[] | undefined> {
+  const res = await callBackground({ kind: 'embed', texts: [text] });
+  return res.ok ? res.vectors?.[0] : undefined;
+}
+
 type Tab = 'entrevista' | 'memorias';
 
 export default function MemoryApp() {
@@ -122,7 +128,8 @@ function Interview() {
         let saved = 0;
         for (const m of mems) {
           if (!(await memoryExists(m.content))) {
-            await addMemory({ type: m.type, content: m.content, contact: m.contact, origin: 'entrevista' });
+            const embedding = await embedText(m.content);
+            await addMemory({ type: m.type, content: m.content, contact: m.contact, origin: 'entrevista', embedding });
             saved++;
           }
         }
@@ -270,9 +277,11 @@ function MemoryCard({ memory, onChange }: { memory: Memory; onChange: () => void
         className="w-full resize-none rounded-lg border border-transparent bg-transparent text-sm focus:border-neutral-300 focus:bg-neutral-50 focus:p-2 dark:focus:border-neutral-700 dark:focus:bg-neutral-950"
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        onBlur={() => {
+        onBlur={async () => {
           if (content.trim() && content !== memory.content) {
-            updateMemory(memory.id!, { content: content.trim() }).then(onChange);
+            const embedding = await embedText(content.trim());
+            await updateMemory(memory.id!, { content: content.trim(), embedding });
+            onChange();
           }
         }}
       />

@@ -25,7 +25,7 @@ Erros normalizados em `ProviderError` com mensagem legível em pt-BR ([`src/prov
 | `gemini` | `:generateContent` | `:generateContent` + `inline_data` | ✅ `google_search` | roles `user`/`model` |
 | `openrouter` | `/api/v1/chat/completions` | — | — | compatível OpenAI; `HTTP-Referer`/`X-Title` |
 
-Capacidades: `chat`, `transcribe`, `vision`, `search`. `ChatRequest` carrega `images` (vision) e `search` (busca web). O background aplica a config de geração (`maxTokens`, `temperature`, `rules`) — ver [`chat-panel.md`](./chat-panel.md).
+Capacidades: `chat`, `transcribe`, `vision`, `search`, `embeddings`. `ChatRequest` carrega `images` (vision) e `search` (busca web). `embed(texts, model, creds)` (OpenAI/Gemini) gera vetores para a busca semântica da memória (`resolveEmbed` + `selectRelevantSemantic`). O background aplica a config de geração (`maxTokens`, `temperature`, `rules`) — ver [`chat-panel.md`](./chat-panel.md).
 
 Chat compatível com OpenAI é compartilhado em [`openai-compatible.ts`](../../src/providers/openai-compatible.ts) (reuso entre `openai` e `openrouter`).
 

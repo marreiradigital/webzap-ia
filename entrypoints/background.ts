@@ -1,10 +1,10 @@
 import { defineBackground, browser } from '#imports';
 import { getConfig, type WebzapConfig } from '@/src/storage';
-import { resolveTask } from '@/src/ai/resolve';
+import { resolveTask, resolveEmbed } from '@/src/ai/resolve';
 import { getProvider } from '@/src/providers/registry';
 import { ProviderError, type ChatRequest, type ProviderCredentials, type ProviderModule } from '@/src/providers/types';
 import { activeMemories, addMemory, memoryExists } from '@/src/memory/db';
-import { selectRelevant, personaSystemPrompt } from '@/src/memory/retriever';
+import { selectRelevant, selectRelevantSemantic, personaSystemPrompt } from '@/src/memory/retriever';
 import type { BgRequest, BgResponse } from '@/src/messaging';
 
 type ChatMsg = Extract<BgRequest, { kind: 'chat' }>;
@@ -72,12 +72,7 @@ async function prepareChat(
   const gen = config.generation;
   let messages = msg.messages;
   if (msg.usePersona) {
-    const persona = personaSystemPrompt(
-      selectRelevant(await activeMemories(), {
-        contact: msg.chatName,
-        query: lastUserText(msg.messages),
-      }),
-    );
+    const persona = await retrievePersona(config, msg.chatName, lastUserText(msg.messages));
     if (persona) messages = [{ role: 'system', content: persona }, ...messages];
   }
   if (!msg.raw && gen.rules?.trim()) {
@@ -153,15 +148,40 @@ async function handle(msg: BgRequest): Promise<BgResponse> {
     }
 
     case 'memoryAdd': {
-      // Salva memorias (auto-treino) deduplicando por conteudo.
-      let saved = 0;
+      // Salva memorias (auto-treino) deduplicando por conteudo, com embedding.
+      const toSave = [];
       for (const m of msg.memories) {
-        if (m.content && !(await memoryExists(m.content))) {
-          await addMemory({ type: m.type, content: m.content, contact: m.contact, origin: 'auto-train' });
-          saved++;
+        if (m.content && !(await memoryExists(m.content))) toSave.push(m);
+      }
+      let embeddings: number[][] | null = null;
+      const e = resolveEmbed(config);
+      if (e?.provider.embed && toSave.length) {
+        try {
+          embeddings = await e.provider.embed(toSave.map((m) => m.content), e.model, e.creds);
+        } catch {
+          embeddings = null;
         }
       }
-      return { ok: true, text: String(saved) };
+      for (let i = 0; i < toSave.length; i++) {
+        const m = toSave[i];
+        await addMemory({
+          type: m.type,
+          content: m.content,
+          contact: m.contact,
+          origin: 'auto-train',
+          embedding: embeddings?.[i],
+        });
+      }
+      return { ok: true, text: String(toSave.length) };
+    }
+
+    case 'embed': {
+      const e = resolveEmbed(config);
+      if (!e?.provider.embed) {
+        return { ok: false, error: 'Nenhum provedor de embeddings configurado (OpenAI ou Gemini).' };
+      }
+      const vectors = await e.provider.embed(msg.texts, e.model, e.creds);
+      return { ok: true, text: '', vectors };
     }
 
     default:
@@ -174,4 +194,32 @@ function lastUserText(messages: { role: string; content: string }[]): string {
     if (messages[i].role === 'user') return messages[i].content;
   }
   return '';
+}
+
+/** Recupera o perfil (persona) — semantico se houver embeddings, senao keyword. */
+async function retrievePersona(
+  config: WebzapConfig,
+  chatName: string | undefined,
+  query: string,
+): Promise<string | null> {
+  const mems = await activeMemories();
+  if (!mems.length) return null;
+  let selected = null as ReturnType<typeof selectRelevant> | null;
+  if (query.trim() && mems.some((m) => m.embedding?.length)) {
+    const vec = await tryEmbed(config, query);
+    if (vec) selected = selectRelevantSemantic(mems, vec, { contact: chatName });
+  }
+  if (!selected) selected = selectRelevant(mems, { contact: chatName, query });
+  return personaSystemPrompt(selected);
+}
+
+async function tryEmbed(config: WebzapConfig, text: string): Promise<number[] | null> {
+  try {
+    const e = resolveEmbed(config);
+    if (!e?.provider.embed) return null;
+    const vecs = await e.provider.embed([text], e.model, e.creds);
+    return vecs[0] ?? null;
+  } catch {
+    return null;
+  }
 }

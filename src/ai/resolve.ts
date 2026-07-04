@@ -56,6 +56,27 @@ export function resolveTask(config: WebzapConfig, task: TaskKind): ResolvedTask 
   throw new Error(humanizeNoProvider(task, cap));
 }
 
+/** Primeiro provider com embeddings configurado (ou null). Usado na busca semantica. */
+export function resolveEmbed(config: WebzapConfig): ResolvedTask | null {
+  for (const id of PROVIDER_IDS) {
+    const cfg = config.providers[id];
+    const provider = PROVIDERS[id];
+    if (
+      cfg?.enabled &&
+      cfg.apiKey &&
+      provider.capabilities.includes('embeddings') &&
+      provider.embed
+    ) {
+      return {
+        provider,
+        model: provider.defaultModels.embed ?? '',
+        creds: { apiKey: cfg.apiKey, baseUrl: cfg.baseUrl },
+      };
+    }
+  }
+  return null;
+}
+
 /** Modelo efetivo: override do provider (config) > default do codigo. */
 function providerModel(
   provider: ProviderModule,

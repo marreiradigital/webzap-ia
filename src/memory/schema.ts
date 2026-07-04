@@ -15,6 +15,8 @@ export interface Memory {
   tags?: string[];
   origin: MemoryOrigin;
   archived?: boolean;
+  /** Vetor de embedding para busca semantica (opcional). */
+  embedding?: number[];
   createdAt: number;
   updatedAt: number;
 }

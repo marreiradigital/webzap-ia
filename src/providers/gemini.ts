@@ -48,10 +48,11 @@ function extractText(data: GeminiResponse): string {
 export const gemini: ProviderModule = {
   id: 'gemini',
   label: 'Google Gemini',
-  capabilities: ['chat', 'transcribe', 'vision', 'search'],
+  capabilities: ['chat', 'transcribe', 'vision', 'search', 'embeddings'],
   defaultModels: {
     chat: 'gemini-2.5-flash',
     transcribe: 'gemini-2.5-flash',
+    embed: 'text-embedding-004',
   },
   suggestedModels: {
     chat: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
@@ -87,6 +88,23 @@ export const gemini: ProviderModule = {
         /* ignora */
       }
     });
+  },
+
+  async embed(texts, model, creds, signal): Promise<number[][]> {
+    const base = creds.baseUrl?.replace(/\/$/, '') ?? DEFAULT_BASE;
+    const data = await postJson<{ embeddings?: Array<{ values: number[] }> }>(
+      'gemini',
+      `${base}/models/${encodeURIComponent(model)}:batchEmbedContents?key=${encodeURIComponent(creds.apiKey)}`,
+      {},
+      {
+        requests: texts.map((t) => ({
+          model: `models/${model}`,
+          content: { parts: [{ text: t }] },
+        })),
+      },
+      signal,
+    );
+    return (data.embeddings ?? []).map((e) => e.values);
   },
 
   async transcribe(

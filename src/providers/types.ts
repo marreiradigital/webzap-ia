@@ -61,6 +61,7 @@ export interface ProviderModule {
   defaultModels: {
     chat: string;
     transcribe?: string;
+    embed?: string;
   };
   /** Sugestoes exibidas na UI (o usuario pode digitar qualquer modelo). */
   suggestedModels: {
@@ -84,6 +85,13 @@ export interface ProviderModule {
     creds: ProviderCredentials,
     signal?: AbortSignal,
   ): Promise<TranscribeResult>;
+  /** Gera embeddings (vetores) para busca semantica na memoria. Opcional. */
+  embed?(
+    texts: string[],
+    model: string,
+    creds: ProviderCredentials,
+    signal?: AbortSignal,
+  ): Promise<number[][]>;
 }
 
 export function hasCapability(p: ProviderModule, cap: Capability): boolean {
