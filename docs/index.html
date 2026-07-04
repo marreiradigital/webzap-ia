@@ -1,663 +1,591 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WebZap - IA — Inteligência artificial no WhatsApp Web</title>
-    <meta
-      name="description"
-      content="Extensão para o WhatsApp Web: resumir conversas, transcrever áudios, explicar mensagens, pesquisar online e responder com IA (Anthropic, OpenAI, Gemini, OpenRouter)."
-    />
-    <meta property="og:title" content="WebZap - IA" />
-    <meta
-      property="og:description"
-      content="IA direto no WhatsApp Web: resumir, transcrever, explicar, pesquisar e responder."
-    />
-    <style>
-      :root {
-        --green: #25d366;
-        --green-strong: #1da851;
-        --ink: #0b141a;
-        --ink-2: #111b21;
-        --panel: #182229;
-        --bg: #f7f9fa;
-        --card: #ffffff;
-        --fg: #101418;
-        --fg-soft: #5a6b74;
-        --border: #e4e9ec;
-        --radius: 16px;
-        --shadow: 0 10px 40px rgba(11, 20, 26, 0.12);
-      }
-      * {
-        box-sizing: border-box;
-      }
-      html {
-        scroll-behavior: smooth;
-      }
-      body {
-        margin: 0;
-        font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
-        color: var(--fg);
-        background: var(--bg);
-        line-height: 1.55;
-      }
-      a {
-        color: inherit;
-      }
-      .wrap {
-        max-width: 1080px;
-        margin: 0 auto;
-        padding: 0 20px;
-      }
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border-radius: 999px;
-        padding: 13px 22px;
-        font-weight: 600;
-        font-size: 15px;
-        text-decoration: none;
-        border: 1px solid transparent;
-        cursor: pointer;
-        transition: transform 0.12s ease, background 0.12s ease;
-      }
-      .btn:hover {
-        transform: translateY(-2px);
-      }
-      .btn-primary {
-        background: var(--green);
-        color: #04150c;
-      }
-      .btn-primary:hover {
-        background: var(--green-strong);
-        color: #fff;
-      }
-      .btn-ghost {
-        background: rgba(255, 255, 255, 0.08);
-        color: #fff;
-        border-color: rgba(255, 255, 255, 0.22);
-      }
-      .btn-ghost:hover {
-        background: rgba(255, 255, 255, 0.16);
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>WebZap - IA — Inteligência artificial dentro do WhatsApp Web</title>
+  <meta name="description" content="Extensão para Chrome que coloca IA dentro do WhatsApp Web: resumir conversas, transcrever áudios sem ouvir, traduzir, sugerir respostas, ditar mensagens e pesquisar online. Anthropic, OpenAI, Gemini e OpenRouter, com failover automático." />
+  <meta property="og:title" content="WebZap - IA — IA dentro do WhatsApp Web" />
+  <meta property="og:description" content="Resumir, transcrever sem ouvir, traduzir, sugerir respostas e ditar mensagens — direto no WhatsApp Web, com suas próprias chaves de API." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2325d366'/%3E%3Cpath d='M20 42c6-2 8-6 8-6l8-14 8 20-10-4-8 6z' fill='%230b141a'/%3E%3Ccircle cx='44' cy='20' r='5' fill='%23fff'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ==== Tokens — a página vive no mundo do WhatsApp escuro ==== */
+    :root {
+      --bg: #0b141a;          /* fundo do chat escuro */
+      --panel: #111b21;        /* painel lateral */
+      --card: #17242c;
+      --bubble-in: #202c33;    /* bolha recebida */
+      --bubble-out: #005c4b;   /* bolha enviada */
+      --accent: #25d366;
+      --accent-strong: #1da851;
+      --ink: #e9edef;
+      --soft: #9db2bd;
+      --faint: #6b7f89;
+      --line: #223138;
+      --amber: #f5c518;
+      --radius: 14px;
+      --mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scrollbar-gutter: stable; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    h1, h2, h3 { font-family: 'Sora', 'Inter', sans-serif; line-height: 1.2; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, kbd {
+      font-family: var(--mono);
+      font-size: 0.88em;
+      background: #0f1c23;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 2px 7px;
+      overflow-wrap: anywhere;
+    }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+    .wrap { max-width: 1060px; margin: 0 auto; padding: 0 20px; }
 
-      /* Header */
-      header.nav {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        background: rgba(11, 20, 26, 0.85);
-        backdrop-filter: blur(8px);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      }
-      .nav-inner {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        height: 62px;
-      }
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        color: #fff;
-        font-weight: 700;
-        text-decoration: none;
-      }
-      .brand .logo {
-        width: 34px;
-        height: 34px;
-        border-radius: 9px;
-        background: var(--green);
-        display: grid;
-        place-items: center;
-        color: #04150c;
-      }
-      .nav-links {
-        display: flex;
-        gap: 22px;
-        align-items: center;
-      }
-      .nav-links a {
-        color: #cfd9de;
-        text-decoration: none;
-        font-size: 14px;
-        font-weight: 500;
-      }
-      .nav-links a:hover {
-        color: #fff;
-      }
-      .nav-links .tag {
-        font-size: 12px;
-        color: var(--green);
-        border: 1px solid rgba(37, 211, 102, 0.4);
-        border-radius: 999px;
-        padding: 2px 10px;
-      }
+    /* Papel de parede de rabiscos (vibe do chat), bem sutil */
+    .doodle {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.028' stroke-width='2'%3E%3Ccircle cx='24' cy='26' r='9'/%3E%3Cpath d='M88 18l10 10m0-10l-10 10'/%3E%3Crect x='100' y='92' width='20' height='14' rx='4'/%3E%3Cpath d='M30 100c6-10 18-10 24 0'/%3E%3Cpath d='M64 62h18M64 70h12'/%3E%3C/g%3E%3C/svg%3E");
+    }
 
-      /* Hero */
-      .hero {
-        background:
-          radial-gradient(1000px 500px at 80% -10%, rgba(37, 211, 102, 0.18), transparent 60%),
-          radial-gradient(700px 400px at 0% 0%, rgba(37, 211, 102, 0.08), transparent 55%),
-          var(--ink);
-        color: #fff;
-        padding: 72px 0 90px;
-      }
-      .hero-grid {
-        display: grid;
-        grid-template-columns: 1.1fr 0.9fr;
-        gap: 48px;
-        align-items: center;
-      }
-      .hero h1 {
-        font-size: clamp(34px, 5vw, 52px);
-        line-height: 1.08;
-        margin: 0 0 16px;
-        letter-spacing: -0.02em;
-      }
-      .hero h1 .hl {
-        color: var(--green);
-      }
-      .hero p.lead {
-        font-size: clamp(16px, 2.2vw, 19px);
-        color: #c3ced4;
-        margin: 0 0 28px;
-        max-width: 32ch;
-      }
-      .hero-actions {
-        display: flex;
-        gap: 14px;
-        flex-wrap: wrap;
-      }
-      .hero small.note {
-        display: block;
-        margin-top: 18px;
-        color: #8aa0ab;
-        font-size: 13px;
-      }
+    /* ==== Topo ==== */
+    .topbar {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(11, 20, 26, 0.86);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+    .topbar-inner { display: flex; align-items: center; gap: 18px; min-height: 62px; }
+    .logo { display: flex; align-items: center; gap: 10px; font-family: 'Sora'; font-weight: 700; font-size: 17px; color: var(--ink); }
+    .logo:hover { text-decoration: none; }
+    .logo-badge {
+      width: 34px; height: 34px; border-radius: 10px; background: var(--accent);
+      display: grid; place-items: center; color: #06281a; font-size: 15px; font-weight: 700;
+    }
+    nav.mainnav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+    nav.mainnav a {
+      color: var(--soft); font-size: 14px; font-weight: 500;
+      padding: 10px 12px; border-radius: 8px; min-height: 44px; display: inline-flex; align-items: center;
+    }
+    nav.mainnav a:hover { color: var(--ink); background: var(--bubble-in); text-decoration: none; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      border-radius: 999px; padding: 12px 22px; min-height: 46px;
+      font-weight: 600; font-size: 15px; border: none; cursor: pointer;
+    }
+    .btn-primary { background: var(--accent); color: #06281a; }
+    .btn-primary:hover { background: var(--accent-strong); color: #04331f; text-decoration: none; }
+    .btn-ghost { border: 1px solid var(--line); color: var(--ink); background: transparent; }
+    .btn-ghost:hover { border-color: var(--accent); text-decoration: none; }
+    .topbar .btn { padding: 9px 18px; min-height: 40px; font-size: 14px; margin-left: auto; }
+    .topbar .btn { margin-left: 0; }
 
-      /* Mockup */
-      .mock {
-        background: var(--panel);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 20px;
-        box-shadow: var(--shadow);
-        overflow: hidden;
-      }
-      .mock-bar {
-        height: 40px;
-        background: var(--ink-2);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 0 14px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      }
-      .dot {
-        width: 11px;
-        height: 11px;
-        border-radius: 50%;
-        background: #3a4a52;
-      }
-      .mock-body {
-        padding: 16px;
-        display: grid;
-        gap: 10px;
-      }
-      .bubble {
-        max-width: 78%;
-        padding: 9px 12px;
-        border-radius: 12px;
-        font-size: 13.5px;
-        color: #e9edef;
-      }
-      .bubble.in {
-        background: #202c33;
-        border-top-left-radius: 4px;
-      }
-      .bubble.out {
-        background: #005c4b;
-        align-self: end;
-        border-top-right-radius: 4px;
-      }
-      .wz-card {
-        margin-top: 6px;
-        background: #233138;
-        border-left: 3px solid var(--green);
-        border-radius: 10px;
-        padding: 12px;
-        color: #e9edef;
-        font-size: 13px;
-      }
-      .wz-card .h {
-        font-weight: 700;
-        font-size: 12px;
-        color: #8fefc0;
-        margin-bottom: 6px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .wz-card ul {
-        margin: 0;
-        padding-left: 18px;
-        color: #c3ced4;
-      }
+    /* ==== Herói: a página fala em bolhas ==== */
+    .hero { padding: 72px 0 60px; }
+    .hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center; }
+    .eyebrow {
+      font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 14px;
+    }
+    .hero h1 { font-size: clamp(30px, 4.6vw, 46px); font-weight: 700; margin: 0 0 16px; }
+    .hero h1 em { font-style: normal; color: var(--accent); }
+    .hero p.lead { color: var(--soft); font-size: 17.5px; margin: 0 0 26px; max-width: 46ch; }
+    .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .version-chip {
+      font-family: var(--mono); font-size: 13px; color: var(--soft);
+      border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px;
+    }
+    .hero-meta { margin-top: 20px; display: flex; gap: 16px; flex-wrap: wrap; color: var(--faint); font-size: 13.5px; }
+    .hero-meta span { display: inline-flex; align-items: center; gap: 6px; }
 
-      /* Sections */
-      section {
-        padding: 72px 0;
-      }
-      .section-head {
-        text-align: center;
-        max-width: 640px;
-        margin: 0 auto 44px;
-      }
-      .section-head h2 {
-        font-size: clamp(26px, 3.5vw, 34px);
-        margin: 0 0 10px;
-        letter-spacing: -0.01em;
-      }
-      .section-head p {
-        color: var(--fg-soft);
-        margin: 0;
-        font-size: 17px;
-      }
-      .kicker {
-        color: var(--green-strong);
-        font-weight: 700;
-        font-size: 13px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
+    /* Mock de conversa */
+    .chatmock {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+    }
+    .chatmock-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--bubble-in);
+    }
+    .chatmock-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; font-size: 16px; }
+    .chatmock-name { font-weight: 600; font-size: 14.5px; }
+    .chatmock-status { font-size: 12px; color: var(--accent); }
+    .chatmock-body { padding: 18px 14px 20px; display: flex; flex-direction: column; gap: 10px; min-height: 330px; }
+    .msg {
+      max-width: 86%;
+      border-radius: 12px;
+      padding: 9px 12px;
+      font-size: 14px;
+      line-height: 1.45;
+      position: relative;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: msg-in 0.4s ease forwards;
+    }
+    .msg .who { font-size: 11.5px; font-weight: 600; color: var(--amber); margin-bottom: 2px; }
+    .msg.in { background: var(--bubble-in); align-self: flex-start; border-top-left-radius: 4px; }
+    .msg.out { background: var(--bubble-out); align-self: flex-end; border-top-right-radius: 4px; }
+    .msg.ai { border: 1px solid rgba(37, 211, 102, 0.45); background: rgba(37, 211, 102, 0.08); align-self: flex-start; }
+    .msg.ai .who { color: var(--accent); }
+    .msg .clock { font-size: 10.5px; color: var(--faint); text-align: right; margin-top: 3px; }
+    .audio-line { display: flex; align-items: center; gap: 8px; min-width: 190px; }
+    .audio-line .play { width: 26px; height: 26px; border-radius: 50%; background: #33434c; display: grid; place-items: center; font-size: 11px; }
+    .audio-line .wave { flex: 1; height: 18px; background: repeating-linear-gradient(90deg, #55666f 0 2px, transparent 2px 5px); border-radius: 3px; }
+    @keyframes msg-in { to { opacity: 1; transform: none; } }
+    .msg:nth-child(1) { animation-delay: 0.2s; }
+    .msg:nth-child(2) { animation-delay: 0.9s; }
+    .msg:nth-child(3) { animation-delay: 1.7s; }
+    .msg:nth-child(4) { animation-delay: 2.6s; }
+    @media (prefers-reduced-motion: reduce) {
+      .msg { animation: none; opacity: 1; transform: none; }
+      html { scroll-behavior: auto; }
+    }
 
-      .features {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 18px;
-      }
-      .feature {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        padding: 22px;
-        transition: transform 0.12s ease, box-shadow 0.12s ease;
-      }
-      .feature:hover {
-        transform: translateY(-3px);
-        box-shadow: var(--shadow);
-      }
-      .feature .ic {
-        width: 44px;
-        height: 44px;
-        border-radius: 12px;
-        background: rgba(37, 211, 102, 0.12);
-        display: grid;
-        place-items: center;
-        font-size: 22px;
-        margin-bottom: 14px;
-      }
-      .feature h3 {
-        margin: 0 0 6px;
-        font-size: 17px;
-      }
-      .feature p {
-        margin: 0;
-        color: var(--fg-soft);
-        font-size: 14.5px;
-      }
+    /* ==== Seções ==== */
+    section { padding: 64px 0; }
+    section + section { border-top: 1px solid var(--line); }
+    .sec-eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+    h2 { font-size: clamp(24px, 3.2vw, 32px); margin: 0 0 10px; }
+    .sec-sub { color: var(--soft); max-width: 62ch; margin: 0 0 34px; }
 
-      /* Providers */
-      .providers {
-        background: #fff;
-        border-top: 1px solid var(--border);
-        border-bottom: 1px solid var(--border);
-      }
-      .provider-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        justify-content: center;
-      }
-      .chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        padding: 10px 18px;
-        font-weight: 600;
-        font-size: 15px;
-      }
+    /* Recursos */
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+    .feature {
+      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 20px 18px;
+    }
+    .feature .ico { font-size: 22px; margin-bottom: 10px; }
+    .feature h3 { font-size: 16px; margin: 0 0 6px; }
+    .feature p { font-size: 14px; color: var(--soft); margin: 0; }
 
-      /* Steps */
-      .steps {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 18px;
-        counter-reset: step;
-      }
-      .step {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        padding: 24px;
-        position: relative;
-      }
-      .step::before {
-        counter-increment: step;
-        content: counter(step);
-        position: absolute;
-        top: -16px;
-        left: 22px;
-        width: 34px;
-        height: 34px;
-        border-radius: 50%;
-        background: var(--green);
-        color: #04150c;
-        font-weight: 800;
-        display: grid;
-        place-items: center;
-        box-shadow: var(--shadow);
-      }
-      .step h3 {
-        margin: 10px 0 6px;
-        font-size: 17px;
-      }
-      .step p {
-        margin: 0;
-        color: var(--fg-soft);
-        font-size: 14.5px;
-      }
-      code {
-        background: #eef2f4;
-        padding: 2px 6px;
-        border-radius: 5px;
-        font-size: 0.92em;
-      }
+    /* Passos (instalação) — sequência real, numeração honesta */
+    .steps { display: flex; flex-direction: column; gap: 14px; counter-reset: passo; }
+    .step {
+      display: grid; grid-template-columns: 52px 1fr; gap: 16px;
+      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 20px;
+    }
+    .step::before {
+      counter-increment: passo;
+      content: counter(passo);
+      font-family: 'Sora'; font-weight: 700; font-size: 20px;
+      width: 44px; height: 44px; border-radius: 12px;
+      background: rgba(37, 211, 102, 0.12); color: var(--accent);
+      display: grid; place-items: center;
+    }
+    .step h3 { margin: 2px 0 6px; font-size: 16.5px; }
+    .step p { margin: 0; color: var(--soft); font-size: 14.5px; }
+    .step p + p { margin-top: 8px; }
+    .callout {
+      border-left: 3px solid var(--amber);
+      background: rgba(245, 197, 24, 0.07);
+      border-radius: 0 10px 10px 0;
+      padding: 14px 16px; margin-top: 18px;
+      color: var(--soft); font-size: 14.5px;
+    }
+    .callout strong { color: var(--ink); }
+    .callout.green { border-left-color: var(--accent); background: rgba(37, 211, 102, 0.07); }
 
-      .cta {
-        background:
-          radial-gradient(700px 300px at 50% 0%, rgba(37, 211, 102, 0.16), transparent 60%),
-          var(--ink);
-        color: #fff;
-        text-align: center;
-        border-radius: 24px;
-        padding: 56px 24px;
-        margin: 0 auto;
-      }
-      .cta h2 {
-        font-size: clamp(24px, 3.5vw, 32px);
-        margin: 0 0 12px;
-      }
-      .cta p {
-        color: #c3ced4;
-        margin: 0 0 24px;
-      }
+    /* Como usar — superfícies da extensão */
+    .use-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+    .use-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 20px; }
+    .use-card .tag {
+      display: inline-block; font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--accent); background: rgba(37, 211, 102, 0.1);
+      border-radius: 6px; padding: 3px 8px; margin-bottom: 12px;
+    }
+    .use-card h3 { font-size: 17px; margin: 0 0 10px; }
+    .use-card ul { margin: 0; padding-left: 18px; color: var(--soft); font-size: 14.5px; }
+    .use-card li { margin: 6px 0; }
+    .use-card li strong { color: var(--ink); font-weight: 600; }
 
-      .warn {
-        max-width: 760px;
-        margin: 36px auto 0;
-        background: #fff8e6;
-        border: 1px solid #f2e2b3;
-        color: #6b551b;
-        border-radius: 12px;
-        padding: 14px 18px;
-        font-size: 14px;
-      }
+    /* Changelog dinâmico */
+    .cl-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 22px 18px; margin-bottom: 14px; }
+    .cl-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+    .cl-version { font-family: var(--mono); font-weight: 600; font-size: 17px; color: var(--accent); }
+    .cl-date { font-size: 13px; color: var(--faint); }
+    .cl-cat {
+      display: inline-block; font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+      border-radius: 6px; padding: 2px 8px; margin: 12px 0 6px;
+    }
+    .cl-cat.add { background: rgba(37, 211, 102, 0.12); color: var(--accent); }
+    .cl-cat.fix { background: rgba(245, 197, 24, 0.12); color: var(--amber); }
+    .cl-cat.other { background: rgba(83, 189, 235, 0.12); color: #53bdeb; }
+    .cl-card ul { margin: 4px 0 0; padding-left: 18px; color: var(--soft); font-size: 14.5px; }
+    .cl-card li { margin: 5px 0; }
+    .cl-card li strong { color: var(--ink); }
+    .cl-note { font-size: 14px; color: var(--faint); }
+    #changelog-status { color: var(--faint); font-size: 14.5px; }
 
-      footer {
-        background: var(--ink);
-        color: #9fb0b9;
-        padding: 40px 0;
-        font-size: 14px;
-      }
-      .foot-inner {
-        display: flex;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 16px;
-        align-items: center;
-      }
-      footer a {
-        color: #cfd9de;
-        text-decoration: none;
-      }
-      footer a:hover {
-        color: #fff;
-      }
-      .foot-links {
-        display: flex;
-        gap: 20px;
-        flex-wrap: wrap;
-      }
+    /* Privacidade */
+    .priv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
 
-      @media (max-width: 860px) {
-        .hero-grid {
-          grid-template-columns: 1fr;
-          gap: 34px;
-        }
-        .features,
-        .steps {
-          grid-template-columns: 1fr;
-        }
-        .nav-links a:not(.tag) {
-          display: none;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <header class="nav">
-      <div class="wrap nav-inner">
-        <a class="brand" href="#top">
-          <span class="logo">
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-              <path d="M8.5 1.866a1 1 0 1 0-1 0V3h-2A4.5 4.5 0 0 0 1 7.5V8a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1v-.5A4.5 4.5 0 0 0 10.5 3h-2zM14 7.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7.5A3.5 3.5 0 0 1 5.5 4h5A3.5 3.5 0 0 1 14 7.5" />
-              <path d="M6 12.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5M4.5 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2m7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2" />
-            </svg>
-          </span>
-          WebZap - IA
-        </a>
-        <nav class="nav-links">
-          <a href="#features">Recursos</a>
-          <a href="#install">Instalar</a>
-          <a href="https://github.com/marreiradigital/webzap-ia" target="_blank" rel="noopener">GitHub</a>
-          <a
-            href="https://github.com/marreiradigital/webzap-ia/stargazers"
-            target="_blank"
-            rel="noopener"
-            title="Star no GitHub"
-          >
-            <img
-              src="https://img.shields.io/github/stars/marreiradigital/webzap-ia?style=social"
-              alt="GitHub stars"
-              style="vertical-align: middle; height: 20px"
-            />
-          </a>
-          <span class="tag">v0.7.1</span>
-        </nav>
-      </div>
-    </header>
+    /* CTA final + rodapé */
+    .cta-final { text-align: center; padding: 76px 0; }
+    .cta-final h2 { margin-bottom: 12px; }
+    .cta-final p { color: var(--soft); margin: 0 0 26px; }
+    footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--faint); font-size: 13.5px; }
+    .foot-inner { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space-between; align-items: center; }
 
-    <a id="top"></a>
-    <section class="hero">
+    @media (max-width: 860px) {
+      .hero { padding: 44px 0 40px; }
+      .hero-grid { grid-template-columns: 1fr; gap: 34px; }
+      nav.mainnav { display: none; }
+      section { padding: 48px 0; }
+      .step { grid-template-columns: 44px 1fr; gap: 12px; padding: 16px; }
+    }
+  </style>
+</head>
+<body class="doodle">
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="logo" href="#"><span class="logo-badge">✦</span>&nbsp;WebZap&nbsp;<span style="color: var(--accent);">IA</span></a>
+      <nav class="mainnav" aria-label="Seções da página">
+        <a href="#recursos">Recursos</a>
+        <a href="#instalacao">Instalação</a>
+        <a href="#como-usar">Como usar</a>
+        <a href="#novidades">Novidades</a>
+        <a href="https://github.com/marreiradigital/webzap-ia" target="_blank" rel="noopener">GitHub ↗</a>
+      </nav>
+      <a class="btn btn-primary" href="./webzap-ia.zip" download>⬇ Baixar</a>
+    </div>
+  </header>
+
+  <!-- Herói: a página fala a língua do produto — uma conversa -->
+  <main>
+    <section class="hero" aria-label="Apresentação">
       <div class="wrap hero-grid">
         <div>
-          <h1>Inteligência artificial <span class="hl">dentro</span> do WhatsApp Web</h1>
+          <div class="eyebrow">Extensão para o WhatsApp Web · Chrome</div>
+          <h1>Seu WhatsApp, com <em>uma IA do seu lado</em> em cada conversa.</h1>
           <p class="lead">
-            Resuma conversas, transcreva áudios, explique mensagens, pesquise online e responda com
-            IA — sem sair do WhatsApp.
+            Resuma conversas longas, transcreva áudios <strong>sem precisar ouvir</strong>, traduza,
+            dite mensagens, receba sugestões de resposta com a sua cara e pesquise na internet —
+            tudo dentro do WhatsApp Web, usando as suas próprias chaves de IA.
           </p>
-          <div class="hero-actions">
-            <a class="btn btn-primary" href="./webzap-ia.zip" download>
-              ⬇ Baixar extensão
-            </a>
-            <a
-              class="btn btn-ghost"
-              href="https://github.com/marreiradigital/webzap-ia"
-              target="_blank"
-              rel="noopener"
-            >
-              ⭐ Star no GitHub
-            </a>
+          <div class="hero-ctas">
+            <a class="btn btn-primary" href="./webzap-ia.zip" download>⬇ Baixar WebZap - IA</a>
+            <a class="btn btn-ghost" href="#instalacao">Como instalar</a>
+            <span class="version-chip" data-version>v0.7.1</span>
           </div>
-          <small class="note">
-            Chrome / Edge (Manifest V3) · suas chaves e dados ficam só no seu navegador.
-          </small>
+          <div class="hero-meta">
+            <span>🔑 Chaves só no seu navegador</span>
+            <span>🤖 Anthropic · OpenAI · Gemini · OpenRouter</span>
+            <span>🔁 Failover automático</span>
+          </div>
         </div>
 
-        <div class="mock" aria-hidden="true">
-          <div class="mock-bar">
-            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <div class="chatmock doodle" role="img" aria-label="Demonstração: a extensão transcrevendo um áudio e resumindo a conversa dentro do WhatsApp">
+          <div class="chatmock-head">
+            <div class="chatmock-avatar">💼</div>
+            <div>
+              <div class="chatmock-name">Grupo do Trabalho</div>
+              <div class="chatmock-status">WebZap - IA ativo</div>
+            </div>
           </div>
-          <div class="mock-body">
-            <div class="bubble in">Galera, dá pra resumir o que rolou hoje aqui no grupo? 😅</div>
-            <div class="bubble out">Deixa comigo…</div>
-            <div class="bubble in">🎙️ mensagem de voz (0:42)</div>
-            <div class="wz-card">
-              <div class="h">🤖 WebZap - IA · Resumo</div>
-              <ul>
-                <li>Reunião remarcada para sexta 15h</li>
-                <li>Ana envia a proposta amanhã</li>
-                <li>Pendência: confirmar orçamento</li>
-              </ul>
+          <div class="chatmock-body">
+            <div class="msg in">
+              <div class="who">Alexis</div>
+              <div class="audio-line"><span class="play">▶</span><span class="wave"></span><span style="font-size:11px;color:var(--faint)">1:47</span></div>
+              <div class="clock">09:12</div>
+            </div>
+            <div class="msg ai">
+              <div class="who">✦ WebZap · Transcrição</div>
+              "Consegue subir o deploy hoje? O cliente quer ver a versão nova antes da reunião de sexta…"
+              <div class="clock">automática — sem tocar o áudio</div>
+            </div>
+            <div class="msg ai">
+              <div class="who">✦ WebZap · Resumo da conversa</div>
+              • Deploy precisa sair hoje<br />
+              • Reunião com o cliente na sexta<br />
+              <strong>Pendência:</strong> confirmar horário
+              <div class="clock">resumo em 1 clique</div>
+            </div>
+            <div class="msg out">
+              Fechado! Subo hoje à tarde e te confirmo o horário. ✅
+              <div class="clock">sugerida pela IA · revisada por você · 09:14</div>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="features">
+    <!-- Recursos -->
+    <section id="recursos">
       <div class="wrap">
-        <div class="section-head">
-          <div class="kicker">Recursos</div>
-          <h2>Tudo que você precisa, na conversa</h2>
-          <p>Escolha seu provedor de IA e use direto no chat aberto.</p>
-        </div>
+        <div class="sec-eyebrow">O que ela faz</div>
+        <h2>Ferramentas de IA onde a conversa acontece</h2>
+        <p class="sec-sub">Nada de copiar e colar para outro site: os botões aparecem no próprio WhatsApp Web — no menu flutuante, em cada mensagem e no campo de digitação.</p>
         <div class="features">
-          <div class="feature">
-            <div class="ic">📄</div>
-            <h3>Resumir conversa</h3>
-            <p>Resumo curto, médio ou detalhado do que está na tela, em grupo ou no privado.</p>
-          </div>
-          <div class="feature">
-            <div class="ic">🎙️</div>
-            <h3>Transcrever áudios</h3>
-            <p>Transcrição das notas de voz numa caixinha logo abaixo da mensagem.</p>
-          </div>
-          <div class="feature">
-            <div class="ic">💡</div>
-            <h3>Explicar mensagem</h3>
-            <p>Entenda do que se trata qualquer mensagem, com o contexto da conversa.</p>
-          </div>
-          <div class="feature">
-            <div class="ic">🖼️</div>
-            <h3>Descrever imagem</h3>
-            <p>A IA descreve imagens enviadas e transcreve textos que aparecem nelas.</p>
-          </div>
-          <div class="feature">
-            <div class="ic">🔎</div>
-            <h3>Pesquisar online</h3>
-            <p>Respostas atualizadas com fontes (busca web da Anthropic e do Gemini).</p>
-          </div>
-          <div class="feature">
-            <div class="ic">✨</div>
-            <h3>Sugerir resposta</h3>
-            <p>Sugestões no seu tom — é só clicar para inserir no campo e enviar.</p>
-          </div>
-          <div class="feature">
-            <div class="ic">💬</div>
-            <h3>Painel-chat</h3>
-            <p>Continue perguntando, com escrita ao vivo (streaming) e Markdown renderizado.</p>
-          </div>
-          <div class="feature">
-            <div class="ic">🧠</div>
-            <h3>Persona &amp; Memória</h3>
-            <p>Ensine seu estilo à IA; ela lembra do que importa (100% local) para respostas mais suas.</p>
-          </div>
-          <div class="feature">
-            <div class="ic">🤖</div>
-            <h3>Resposta automática</h3>
-            <p>Opcional: sugerir, rascunhar ou até auto-enviar quando você é mencionado.</p>
-          </div>
+          <div class="feature"><div class="ico">🎙️</div><h3>Transcrever sem ouvir</h3><p>A extensão carrega o áudio sozinha, em silêncio, e mostra o texto embaixo da bolha.</p></div>
+          <div class="feature"><div class="ico">📄</div><h3>Resumir conversas</h3><p>Resumo curto, médio ou detalhado do que está na tela, com pendências separadas.</p></div>
+          <div class="feature"><div class="ico">🌐</div><h3>Traduzir mensagens</h3><p>Qualquer mensagem para português — e o seu texto para outros idiomas antes de enviar.</p></div>
+          <div class="feature"><div class="ico">✨</div><h3>Sugerir respostas</h3><p>2 a 3 opções no seu tom. Você escolhe, revisa e envia. Nada sai sem você.</p></div>
+          <div class="feature"><div class="ico">🎤</div><h3>Ditar mensagens</h3><p>Fale, a IA transcreve e insere no campo. Também melhora e revisa o que você digitou.</p></div>
+          <div class="feature"><div class="ico">🔎</div><h3>Pesquisar online</h3><p>Busca na internet sobre o assunto da conversa ou de uma mensagem, com fontes.</p></div>
+          <div class="feature"><div class="ico">🧠</div><h3>Persona &amp; Memória</h3><p>A IA entrevista você e aprende seu estilo para responder cada vez mais parecido com você.</p></div>
+          <div class="feature"><div class="ico">🔁</div><h3>Principal + reservas</h3><p>Defina o provedor principal; se ele falhar, a reserva assume na mesma chamada.</p></div>
         </div>
       </div>
     </section>
 
-    <section class="providers">
+    <!-- Instalação -->
+    <section id="instalacao">
       <div class="wrap">
-        <div class="section-head">
-          <div class="kicker">Provedores</div>
-          <h2>Use a IA que você já tem</h2>
-          <p>Conecte uma ou mais chaves de API e escolha o modelo por tarefa.</p>
-        </div>
-        <div class="provider-row">
-          <span class="chip">🟣 Anthropic (Claude)</span>
-          <span class="chip">🟢 OpenAI</span>
-          <span class="chip">🔵 Google Gemini</span>
-          <span class="chip">🌐 OpenRouter</span>
-        </div>
-      </div>
-    </section>
-
-    <section id="install">
-      <div class="wrap">
-        <div class="section-head">
-          <div class="kicker">Instalação</div>
-          <h2>Rodando em 3 passos</h2>
-          <p>Sem loja: carregue a extensão desempacotada.</p>
-        </div>
+        <div class="sec-eyebrow">Tutorial de instalação</div>
+        <h2>Instale em 3 minutos</h2>
+        <p class="sec-sub">A extensão é instalada em modo desenvolvedor (fora da Chrome Web Store). É simples e você faz uma vez só.</p>
         <div class="steps">
-          <div class="step">
-            <h3>Baixe e extraia</h3>
-            <p>Baixe o <a href="./webzap-ia.zip" download>pacote .zip</a> e extraia numa pasta.</p>
-          </div>
-          <div class="step">
-            <h3>Carregue no navegador</h3>
+          <div class="step"><div>
+            <h3>Baixe e extraia o pacote</h3>
+            <p>Clique em <a href="./webzap-ia.zip" download>Baixar WebZap - IA</a> e extraia o <code>.zip</code> numa pasta que você <strong>não vá apagar</strong> (ex.: <code>Documentos\WebZap</code>). O Chrome vai ler a extensão dessa pasta sempre.</p>
+          </div></div>
+          <div class="step"><div>
+            <h3>Abra as extensões do Chrome</h3>
+            <p>Digite <code>chrome://extensions</code> na barra de endereço e pressione <kbd>Enter</kbd>. Funciona também no Edge (<code>edge://extensions</code>) e no Brave.</p>
+          </div></div>
+          <div class="step"><div>
+            <h3>Ative o Modo do desenvolvedor</h3>
+            <p>É o interruptor no canto superior direito da página de extensões.</p>
+          </div></div>
+          <div class="step"><div>
+            <h3>Carregue a pasta</h3>
+            <p>Clique em <strong>"Carregar sem compactação"</strong> e escolha a pasta que você extraiu no passo 1.</p>
+          </div></div>
+          <div class="step"><div>
+            <h3>Configure sua chave de IA</h3>
+            <p>Clique no ícone da extensão → <strong>Abrir opções</strong>. Cole a chave de pelo menos um provedor e clique em <strong>Testar conexão</strong>:</p>
             <p>
-              Abra <code>chrome://extensions</code>, ative o <strong>Modo do desenvolvedor</strong> e
-              clique em <strong>Carregar sem compactação</strong> apontando para a pasta.
+              <a href="https://console.anthropic.com/" target="_blank" rel="noopener">Anthropic (Claude)</a> ·
+              <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI</a> ·
+              <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google Gemini</a> ·
+              <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter</a>
             </p>
-          </div>
-          <div class="step">
-            <h3>Configure e use</h3>
-            <p>
-              Abra o WhatsApp Web, clique no botão flutuante, adicione uma chave de API nas Opções e
-              pronto.
-            </p>
-          </div>
+          </div></div>
+          <div class="step"><div>
+            <h3>Defina principal e reservas</h3>
+            <p>Na seção <strong>Prioridade e reservas</strong>, escolha quem é o provedor principal. Se ele falhar (limite, fora do ar), a reserva assume automaticamente. Depois abra o <a href="https://web.whatsapp.com" target="_blank" rel="noopener">WhatsApp Web</a> e procure o botão verde flutuante.</p>
+          </div></div>
         </div>
-        <div class="warn">
-          ⚠️ Automatizar o WhatsApp Web pode violar os Termos de Uso e, no modo auto-enviar, resultar
-          em bloqueio da conta. Os recursos de envio são opcionais e desligados por padrão. Use por
-          sua conta e risco.
+        <div class="callout">
+          <strong>A página de opções não abre ou a extensão "sumiu"?</strong> Volte em <code>chrome://extensions</code> e clique no botão <strong>↻ Recarregar</strong> do WebZap — depois dê <kbd>F5</kbd> no WhatsApp Web. Resolve a grande maioria dos casos (inclusive após atualizar a extensão).
         </div>
       </div>
     </section>
 
-    <section>
+    <!-- Como usar -->
+    <section id="como-usar">
       <div class="wrap">
-        <div class="cta">
-          <h2>Pronto para turbinar seu WhatsApp?</h2>
-          <p>Grátis, código aberto e com seus dados no seu dispositivo.</p>
-          <a class="btn btn-primary" href="./webzap-ia.zip" download>⬇ Baixar WebZap - IA</a>
+        <div class="sec-eyebrow">Tutorial de uso</div>
+        <h2>Os 4 lugares onde a IA aparece</h2>
+        <p class="sec-sub">Depois de instalada, a extensão se encaixa no WhatsApp Web em quatro superfícies. Todas respeitam a mesma regra: <strong>nada é enviado sem a sua revisão</strong> (a não ser que você ligue o auto-envio por sua conta).</p>
+        <div class="use-grid">
+          <div class="use-card">
+            <span class="tag">Botão flutuante</span>
+            <h3>🤖 O menu principal, no canto da tela</h3>
+            <ul>
+              <li><strong>Resumo curto / médio / detalhado</strong> da conversa aberta;</li>
+              <li><strong>Sugerir resposta</strong> — opções prontas para inserir no campo;</li>
+              <li><strong>Pesquisar online</strong> sobre o assunto da conversa;</li>
+              <li><strong>Auto-resposta por conversa</strong>: desligada, sugerir, rascunho ou auto-enviar ⚠️;</li>
+              <li><strong>Aprender desta conversa</strong> — alimenta a memória da IA;</li>
+              <li>Atalhos para <strong>Persona &amp; Memória</strong> e <strong>Opções</strong>.</li>
+            </ul>
+          </div>
+          <div class="use-card">
+            <span class="tag">Ícone na mensagem</span>
+            <h3>✦ Passe o mouse sobre qualquer bolha</h3>
+            <ul>
+              <li>Um botão ✦ aparece ao lado da mensagem (enviada ou recebida);</li>
+              <li><strong>Explicar do que se trata</strong> — com o contexto das mensagens anteriores;</li>
+              <li><strong>Transcrever áudio</strong> — sem precisar dar play; o texto sai numa caixinha embaixo da bolha;</li>
+              <li><strong>Traduzir</strong> a mensagem;</li>
+              <li><strong>Descrever imagem</strong> (modelos com visão);</li>
+              <li><strong>Pesquisar online</strong> sobre aquela mensagem.</li>
+            </ul>
+          </div>
+          <div class="use-card">
+            <span class="tag">Barra do campo</span>
+            <h3>⌨️ Acima de onde você digita</h3>
+            <ul>
+              <li>🎤 <strong>Ditar</strong>: grave a voz, a IA transcreve e insere no campo;</li>
+              <li>🌐 <strong>Traduzir</strong> o que você digitou;</li>
+              <li>✨ <strong>Melhorar</strong>: corrige ortografia e clareza mantendo o seu tom;</li>
+              <li>🔊 <strong>Ouvir</strong>: gera áudio do texto (TTS).</li>
+            </ul>
+          </div>
+          <div class="use-card">
+            <span class="tag">Painel-chat</span>
+            <h3>💬 Toda resposta vira uma conversa</h3>
+            <ul>
+              <li>Resumos e explicações abrem num painel lateral <strong>com chat</strong>: pergunte mais, peça detalhes;</li>
+              <li>Chip <strong>Online</strong> liga a pesquisa na internet no follow-up;</li>
+              <li>Engrenagem ⚙️ ajusta <strong>criatividade, limite de tokens e regras</strong> (ex.: "responda sempre curto");</li>
+              <li>Cada conversa do WhatsApp tem o seu próprio painel.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout">
+          ⚠️ <strong>Sobre o auto-envio:</strong> automatizar o WhatsApp pode violar os Termos de Serviço e, em casos extremos, levar a bloqueio da conta. Por isso o modo auto-enviar é <strong>desligado por padrão</strong>, exige confirmação com aviso e vale só para a conversa em que você ativar.
+        </div>
+        <div class="callout green">
+          🧠 <strong>Dica de ouro:</strong> abra <strong>Persona &amp; Memória</strong> e responda a entrevista de 2 minutos. As sugestões de resposta passam a usar seu tom, seus apelidos e o contexto de cada contato — é a diferença entre "resposta de robô" e resposta sua.
         </div>
       </div>
     </section>
 
-    <footer>
-      <div class="wrap foot-inner">
-        <div>WebZap - IA · v0.7.1 · uso pessoal/educacional</div>
-        <div class="foot-links">
-          <a href="https://github.com/marreiradigital/webzap-ia" target="_blank" rel="noopener">GitHub</a>
-          <a href="https://github.com/marreiradigital/webzap-ia/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
-          <a href="https://github.com/marreiradigital/webzap-ia/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacidade</a>
+    <!-- Privacidade -->
+    <section id="privacidade">
+      <div class="wrap">
+        <div class="sec-eyebrow">Privacidade e segurança</div>
+        <h2>Suas chaves, seu navegador, suas regras</h2>
+        <div class="priv-grid" style="margin-top: 28px;">
+          <div class="feature"><div class="ico">🔑</div><h3>Chaves ficam locais</h3><p>As chaves de API são gravadas no armazenamento local da extensão e nunca passam por servidores nossos.</p></div>
+          <div class="feature"><div class="ico">👁️</div><h3>Só o que está na tela</h3><p>A extensão lê apenas as mensagens visíveis da conversa aberta — não vasculha seu histórico.</p></div>
+          <div class="feature"><div class="ico">📡</div><h3>Direto ao provedor</h3><p>O conteúdo vai do seu navegador direto para o provedor de IA que você escolheu. Sem intermediários.</p></div>
+          <div class="feature"><div class="ico">🧠</div><h3>Memória é sua</h3><p>Persona e memórias ficam no seu navegador (IndexedDB). Você edita, arquiva ou apaga quando quiser.</p></div>
         </div>
+        <p class="cl-note" style="margin-top: 18px;">Detalhes na <a href="https://github.com/marreiradigital/webzap-ia/blob/main/PRIVACY.md" target="_blank" rel="noopener">política de privacidade</a>.</p>
       </div>
-    </footer>
-  </body>
+    </section>
+
+    <!-- Changelog dinâmico -->
+    <section id="novidades">
+      <div class="wrap">
+        <div class="sec-eyebrow">Novidades</div>
+        <h2>O que mudou em cada versão</h2>
+        <p class="sec-sub">Carregado ao vivo do <a href="https://github.com/marreiradigital/webzap-ia/blob/main/CHANGELOG.md" target="_blank" rel="noopener">CHANGELOG.md</a> do repositório — esta lista está sempre atualizada, sem depender do site ser republicado.</p>
+        <div id="changelog"><p id="changelog-status">Carregando o histórico de versões…</p></div>
+        <p class="cl-note" id="changelog-more" hidden>
+          Mostrando as versões mais recentes — <a href="https://github.com/marreiradigital/webzap-ia/blob/main/CHANGELOG.md" target="_blank" rel="noopener">veja o histórico completo no GitHub</a>.
+        </p>
+      </div>
+    </section>
+
+    <!-- CTA final -->
+    <section class="cta-final">
+      <div class="wrap">
+        <h2>Pronto para conversar com superpoderes?</h2>
+        <p>Grátis e de código aberto. Você só paga o uso da sua própria chave de IA.</p>
+        <a class="btn btn-primary" href="./webzap-ia.zip" download>⬇ Baixar WebZap - IA&nbsp;<span data-version>v0.7.1</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap foot-inner">
+      <div>WebZap - IA · <span data-version>v0.7.1</span> · uso pessoal e educacional</div>
+      <div>
+        <a href="https://github.com/marreiradigital/webzap-ia" target="_blank" rel="noopener">GitHub</a> ·
+        <a href="https://github.com/marreiradigital/webzap-ia/issues" target="_blank" rel="noopener">Reportar problema</a> ·
+        <a href="https://github.com/marreiradigital/webzap-ia/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacidade</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ==== Changelog dinâmico: busca o CHANGELOG.md do repositório e renderiza ====
+    (function () {
+      const RAW_URL = 'https://raw.githubusercontent.com/marreiradigital/webzap-ia/main/CHANGELOG.md';
+      const MAX_VERSIONS = 6;
+      const container = document.getElementById('changelog');
+      const status = document.getElementById('changelog-status');
+      const more = document.getElementById('changelog-more');
+
+      function esc(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+      // Markdown inline (subconjunto): **negrito**, `código`, [texto](https://...)
+      function inline(s) {
+        return esc(s)
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+          .replace(/_\(([^)]+)\)_/g, '<em>($1)</em>');
+      }
+      function catClass(name) {
+        const n = name.toLowerCase();
+        if (n.indexOf('adicionado') === 0) return 'add';
+        if (n.indexOf('corrigido') === 0) return 'fix';
+        return 'other';
+      }
+
+      function render(md) {
+        const versions = [];
+        let cur = null, list = false;
+        md.split(/\r?\n/).forEach(function (line) {
+          const h2 = line.match(/^##\s*\[([^\]]+)\]\s*(?:-\s*(.+))?/);
+          if (h2) {
+            if (cur && list) { cur.html += '</ul>'; list = false; }
+            cur = { version: h2[1], date: (h2[2] || '').trim(), html: '' };
+            versions.push(cur);
+            return;
+          }
+          if (!cur) return;
+          const h3 = line.match(/^###\s+(.+)/);
+          if (h3) {
+            if (list) { cur.html += '</ul>'; list = false; }
+            cur.html += '<span class="cl-cat ' + catClass(h3[1]) + '">' + esc(h3[1]) + '</span>';
+            return;
+          }
+          const li = line.match(/^-\s+(.+)/);
+          if (li) {
+            if (!list) { cur.html += '<ul>'; list = true; }
+            cur.html += '<li>' + inline(li[1]) + '</li>';
+            return;
+          }
+          if (line.trim() && line.indexOf('#') !== 0) {
+            if (list) { cur.html += '</ul>'; list = false; }
+            cur.html += '<p class="cl-note">' + inline(line.trim()) + '</p>';
+          }
+        });
+        if (cur && list) cur.html += '</ul>';
+        if (!versions.length) throw new Error('changelog vazio');
+
+        container.innerHTML = versions
+          .slice(0, MAX_VERSIONS)
+          .map(function (v) {
+            return (
+              '<article class="cl-card"><div class="cl-head">' +
+              '<span class="cl-version">v' + esc(v.version) + '</span>' +
+              (v.date ? '<span class="cl-date">' + esc(v.date) + '</span>' : '') +
+              '</div>' + v.html + '</article>'
+            );
+          })
+          .join('');
+        if (versions.length > MAX_VERSIONS) more.hidden = false;
+
+        // A versão mais recente reflete nos chips e botões da página.
+        document.querySelectorAll('[data-version]').forEach(function (el) {
+          el.textContent = 'v' + versions[0].version;
+        });
+      }
+
+      fetch(RAW_URL)
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+        .then(render)
+        .catch(function () {
+          status.innerHTML =
+            'Não foi possível carregar o histórico agora. ' +
+            '<a href="https://github.com/marreiradigital/webzap-ia/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Veja o CHANGELOG completo no GitHub</a>.';
+        });
+    })();
+  </script>
+</body>
 </html>
