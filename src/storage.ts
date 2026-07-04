@@ -88,19 +88,36 @@ export const configItem = storage.defineItem<WebzapConfig>('local:webzap-config'
   version: 1,
 });
 
-export async function getConfig(): Promise<WebzapConfig> {
-  const raw = await configItem.getValue();
-  // Merge defensivo com defaults (protege contra config antiga / parcial).
+/** Numero finito dentro de [min, max]; senao, o fallback (blinda config corrompida/campo vazio). */
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+/** Merge defensivo com defaults (protege contra config antiga / parcial / corrompida).
+ *  FONTE UNICA da normalizacao: getConfig e watchConfig passam por aqui. */
+export function normalizeConfig(raw: Partial<WebzapConfig> | null | undefined): WebzapConfig {
+  const gen = { ...DEFAULT_CONFIG.generation, ...raw?.generation };
   return {
     ...DEFAULT_CONFIG,
     ...raw,
     features: { ...DEFAULT_CONFIG.features, ...raw?.features },
-    generation: { ...DEFAULT_CONFIG.generation, ...raw?.generation },
+    generation: {
+      ...gen,
+      maxTokens: clampNumber(gen.maxTokens, 256, 8192, DEFAULT_CONFIG.generation.maxTokens),
+      temperature: clampNumber(gen.temperature, 0, 1, DEFAULT_CONFIG.generation.temperature),
+      rules: typeof gen.rules === 'string' ? gen.rules : '',
+    },
     autoReply: { byChat: { ...raw?.autoReply?.byChat }, mentions: raw?.autoReply?.mentions ?? '' },
     autoTrain: raw?.autoTrain ?? false,
     providers: { ...raw?.providers },
     tasks: { ...raw?.tasks },
   };
+}
+
+export async function getConfig(): Promise<WebzapConfig> {
+  return normalizeConfig(await configItem.getValue());
 }
 
 export async function setConfig(config: WebzapConfig): Promise<void> {
@@ -118,5 +135,5 @@ export async function updateConfig(
 
 /** Observa mudancas de config (usado pela UI injetada para reagir a toggles). */
 export function watchConfig(cb: (config: WebzapConfig) => void): () => void {
-  return configItem.watch((value) => cb({ ...DEFAULT_CONFIG, ...value }));
+  return configItem.watch((value) => cb(normalizeConfig(value)));
 }
