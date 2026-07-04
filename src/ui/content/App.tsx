@@ -1,35 +1,37 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { HOST_TAG } from './constants';
-import { summarize, suggest, explain, transcribe, describeImage } from './actions';
-import { RobotIcon, StarsIcon, MicIcon, ImageIcon, LightbulbIcon } from './icons';
+import {
+  summarize,
+  suggest,
+  explain,
+  transcribe,
+  describeImage,
+  searchConversation,
+  searchMessage,
+  followUp,
+  type Session,
+} from './actions';
+import Panel, { type PanelData } from './Panel';
+import { RobotIcon, MicIcon, ImageIcon, LightbulbIcon, SearchIcon } from './icons';
 import { insertIntoComposer } from '@/src/wa/composer';
 import { detectKind } from '@/src/wa/message-nodes';
+import { setupMessageButtons } from '@/src/wa/inject-buttons';
+import { readHeaderTitle } from '@/src/wa/chat-reader';
 import { callBackground } from '@/src/messaging';
-import { watchConfig, getConfig, type FeatureToggles } from '@/src/storage';
+import {
+  watchConfig,
+  getConfig,
+  updateConfig,
+  DEFAULT_CONFIG,
+  type FeatureToggles,
+  type GenerationSettings,
+} from '@/src/storage';
 import type { SummaryLength } from '@/src/ai/prompts';
 import type { MediaKind } from '@/src/wa/types';
 
-interface RowAnchor {
+interface Anchor {
   row: HTMLElement;
   rect: DOMRect;
 }
-
-interface PanelState {
-  title: string;
-  sub?: string;
-  loading: boolean;
-  error?: string;
-  text?: string;
-  suggestions?: string[];
-}
-
-const DEFAULT_FEATURES: FeatureToggles = {
-  enabled: true,
-  summarize: true,
-  perMessage: true,
-  transcribe: true,
-  suggest: true,
-};
 
 const KIND_TITLE: Record<MediaKind, string> = {
   text: 'Esta mensagem',
@@ -40,93 +42,119 @@ const KIND_TITLE: Record<MediaKind, string> = {
   other: 'Esta mensagem',
 };
 
-function isMessageRow(row: Element): boolean {
-  return !!row.querySelector('.message-in, .message-out, [data-pre-plain-text]');
-}
-
-const ROW_SELECTOR = 'div[role="row"], .message-in, .message-out';
-
 export default function App() {
-  const [features, setFeatures] = useState<FeatureToggles>(DEFAULT_FEATURES);
+  const [features, setFeatures] = useState<FeatureToggles>(DEFAULT_CONFIG.features);
+  const [generation, setGeneration] = useState<GenerationSettings>(DEFAULT_CONFIG.generation);
+  const [chatKey, setChatKey] = useState('');
+  const [panels, setPanels] = useState<Record<string, PanelData>>({});
+  const [menu, setMenu] = useState<Anchor | null>(null);
   const [fabOpen, setFabOpen] = useState(false);
-  const [hover, setHover] = useState<RowAnchor | null>(null);
-  const [menu, setMenu] = useState<RowAnchor | null>(null);
-  const [panel, setPanel] = useState<PanelState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chatKeyRef = useRef('');
 
-  // Carrega e observa a config (interruptor mestre + toggles de feature).
+  // Config (features + geracao), com observacao de mudancas.
   useEffect(() => {
-    getConfig().then((c) => setFeatures(c.features));
-    return watchConfig((c) => setFeatures(c.features));
+    getConfig().then((c) => {
+      setFeatures(c.features);
+      setGeneration(c.generation);
+    });
+    return watchConfig((c) => {
+      setFeatures(c.features);
+      setGeneration(c.generation);
+    });
   }, []);
 
-  // Deteccao de mensagem sob o cursor (mini botao que segue a mensagem).
+  // Rastreia a conversa aberta (pelo titulo do header). Cada conversa tem seu painel.
   useEffect(() => {
-    if (!features.enabled || !features.perMessage) {
-      setHover(null);
-      return;
-    }
-    function onMove(e: MouseEvent) {
-      const t = e.target as HTMLElement | null;
-      if (!t || !t.tagName) return;
-      if (t.tagName.toLowerCase() === HOST_TAG) return; // sobre a nossa propria UI
-      const main = document.getElementById('main');
-      const row = t.closest?.(ROW_SELECTOR) as HTMLElement | null;
-      if (main && row && main.contains(row) && isMessageRow(row)) {
-        if (hideTimer.current) clearTimeout(hideTimer.current);
-        setHover({ row, rect: row.getBoundingClientRect() });
-      } else {
-        scheduleHide();
+    const read = () => readHeaderTitle() ?? '';
+    let last = read();
+    chatKeyRef.current = last;
+    setChatKey(last);
+    const check = () => {
+      const k = read();
+      if (k !== last) {
+        last = k;
+        chatKeyRef.current = k;
+        setChatKey(k);
+        setMenu(null);
       }
-    }
-    function scheduleHide() {
-      if (hideTimer.current) clearTimeout(hideTimer.current);
-      hideTimer.current = setTimeout(() => setHover(null), 220);
-    }
-    document.addEventListener('mousemove', onMove, { passive: true });
-    return () => document.removeEventListener('mousemove', onMove);
+    };
+    const obs = new MutationObserver(check);
+    obs.observe(document.body, { subtree: true, childList: true, characterData: true });
+    const iv = window.setInterval(check, 800);
+    return () => {
+      obs.disconnect();
+      window.clearInterval(iv);
+    };
+  }, []);
+
+  // Botoes injetados em cada mensagem (ancorados a bolha, rolam junto).
+  useEffect(() => {
+    if (!features.enabled || !features.perMessage) return;
+    return setupMessageButtons((row, rect) => setMenu({ row, rect }));
   }, [features.enabled, features.perMessage]);
 
-  // Fecha menus ao apertar Escape.
+  // Esc fecha menus.
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setFabOpen(false);
         setMenu(null);
       }
-    }
+    };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
   const flash = useCallback((msg: string) => {
     setToast(msg);
-    setTimeout(() => setToast(null), 2200);
+    window.setTimeout(() => setToast(null), 2200);
   }, []);
 
-  async function run(title: string, sub: string | undefined, fn: () => Promise<string>) {
+  const saveGeneration = useCallback(async (patch: Partial<GenerationSettings>) => {
+    const next = await updateConfig((c) => ({
+      ...c,
+      generation: { ...c.generation, ...patch },
+    }));
+    setGeneration(next.generation);
+  }, []);
+
+  async function runAction(fallbackTitle: string, fn: () => Promise<Session>) {
     setMenu(null);
     setFabOpen(false);
-    setPanel({ title, sub, loading: true });
+    const key = chatKeyRef.current;
+    setPanels((p) => ({ ...p, [key]: { open: true, loading: true, title: fallbackTitle } }));
     try {
-      const text = await fn();
-      setPanel({ title, sub, loading: false, text });
+      const session = await fn();
+      setPanels((p) => ({ ...p, [key]: { open: true, loading: false, title: session.title, session } }));
     } catch (err) {
-      setPanel({ title, sub, loading: false, error: (err as Error).message });
+      setPanels((p) => ({
+        ...p,
+        [key]: { open: true, loading: false, title: fallbackTitle, error: (err as Error).message },
+      }));
     }
   }
 
-  async function runSuggest() {
-    setMenu(null);
-    setFabOpen(false);
-    setPanel({ title: 'Sugestoes de resposta', loading: true });
+  async function handleFollowup(question: string, useSearch: boolean) {
+    const key = chatKeyRef.current;
+    const cur = panels[key];
+    if (!cur?.session) return;
+    setPanels((p) => ({ ...p, [key]: { ...cur, loading: true, error: undefined } }));
     try {
-      const suggestions = await suggest();
-      setPanel({ title: 'Sugestoes de resposta', loading: false, suggestions });
+      const next = await followUp(cur.session, question, useSearch);
+      setPanels((p) => ({ ...p, [key]: { ...p[key], loading: false, title: next.title, session: next } }));
     } catch (err) {
-      setPanel({ title: 'Sugestoes de resposta', loading: false, error: (err as Error).message });
+      setPanels((p) => ({ ...p, [key]: { ...p[key], loading: false, error: (err as Error).message } }));
     }
+  }
+
+  function closePanel() {
+    const key = chatKeyRef.current;
+    setPanels((p) => {
+      const n = { ...p };
+      delete n[key];
+      return n;
+    });
   }
 
   function useSuggestion(text: string) {
@@ -134,66 +162,51 @@ export default function App() {
     flash(ok ? 'Sugestão inserida no campo (revise e envie).' : 'Não achei o campo de mensagem.');
   }
 
+  function runSummary(length: SummaryLength) {
+    runAction('Resumo', () => summarize(length));
+  }
+
   if (!features.enabled) return null;
 
   const menuKind: MediaKind = menu?.row ? detectKind(menu.row) : 'text';
+  const current = panels[chatKey];
 
   return (
     <div className="wz-root">
-      {/* Mini botao que segue a mensagem sob o cursor */}
-      {hover && features.perMessage && (
-        <button
-          className="wz-hover-btn"
-          style={{
-            top: Math.max(6, hover.rect.top + 4),
-            left: Math.min(window.innerWidth - 32, hover.rect.right - 30),
-          }}
-          title="Ações de IA nesta mensagem"
-          onClick={() => {
-            setMenu({ row: hover.row, rect: hover.row.getBoundingClientRect() });
-          }}
-        >
-          <StarsIcon size={15} />
-        </button>
-      )}
-
       {/* Menu de acoes por mensagem (contextual ao tipo de midia) */}
       {menu && (
         <div
           className="wz-menu"
           style={{
-            top: Math.min(window.innerHeight - 190, menu.rect.top + 4),
-            left: Math.min(window.innerWidth - 240, menu.rect.right - 30),
+            top: Math.min(window.innerHeight - 220, Math.max(8, menu.rect.top - 8)),
+            left: Math.min(window.innerWidth - 250, Math.max(8, menu.rect.left - 210)),
           }}
         >
           <div className="wz-menu-title">{KIND_TITLE[menuKind]}</div>
-          <button
-            className="wz-menu-item"
-            onClick={() => run('Explicar mensagem', undefined, () => explain(menu.row))}
-          >
+          <button className="wz-menu-item" onClick={() => runAction('Explicar mensagem', () => explain(menu.row))}>
             <LightbulbIcon /> Explicar do que se trata
           </button>
           {menuKind === 'audio' && (
             <button
               className="wz-menu-item"
               disabled={!features.transcribe}
-              onClick={() => run('Transcrição do áudio', undefined, () => transcribe(menu.row))}
+              onClick={() => runAction('Transcrição do áudio', () => transcribe(menu.row))}
             >
               <MicIcon /> Transcrever áudio
             </button>
           )}
           {menuKind === 'image' && (
-            <button
-              className="wz-menu-item"
-              onClick={() => run('Descrição da imagem', undefined, () => describeImage(menu.row))}
-            >
+            <button className="wz-menu-item" onClick={() => runAction('Descrição da imagem', () => describeImage(menu.row))}>
               <ImageIcon /> Descrever imagem
             </button>
           )}
+          <button className="wz-menu-item" onClick={() => runAction('Pesquisa online', () => searchMessage(menu.row))}>
+            <SearchIcon /> Pesquisar online
+          </button>
           {(menuKind === 'video' || menuKind === 'document') && (
             <div className="wz-hint" style={{ padding: '4px 10px 8px' }}>
-              {menuKind === 'video' ? 'Vídeo' : 'Documento'}: análise direta ainda não
-              suportada — o "Explicar" usa a legenda e o contexto.
+              {menuKind === 'video' ? 'Vídeo' : 'Documento'}: análise direta ainda não suportada — o
+              "Explicar" usa a legenda e o contexto.
             </div>
           )}
         </div>
@@ -226,10 +239,13 @@ export default function App() {
             </>
           )}
           {features.suggest && (
-            <button className="wz-menu-item" onClick={runSuggest}>
+            <button className="wz-menu-item" onClick={() => runAction('Sugestões de resposta', () => suggest())}>
               ✨ Sugerir resposta
             </button>
           )}
+          <button className="wz-menu-item" onClick={() => runAction('Pesquisa online', () => searchConversation())}>
+            <SearchIcon /> Pesquisar online
+          </button>
           <button
             className="wz-menu-item"
             onClick={() => {
@@ -242,54 +258,21 @@ export default function App() {
         </div>
       )}
 
-      {/* Painel de resultados */}
-      {panel && (
-        <div className="wz-panel">
-          <div className="wz-panel-head">
-            <div>
-              <div className="wz-panel-title">{panel.title}</div>
-              {panel.sub && <div className="wz-panel-sub">{panel.sub}</div>}
-            </div>
-            <button className="wz-icon-btn" title="Fechar" onClick={() => setPanel(null)}>
-              ✕
-            </button>
-          </div>
-          <div className="wz-panel-body">
-            {panel.loading && (
-              <span>
-                <span className="wz-spinner" /> Gerando com a IA...
-              </span>
-            )}
-            {panel.error && <div className="wz-error">{panel.error}</div>}
-            {panel.text && <div>{panel.text}</div>}
-            {panel.suggestions && (
-              <div>
-                {panel.suggestions.length === 0 && <div>Nenhuma sugestão gerada.</div>}
-                {panel.suggestions.map((s, i) => (
-                  <button key={i} className="wz-suggestion" onClick={() => useSuggestion(s)}>
-                    {s}
-                  </button>
-                ))}
-                <div className="wz-hint">
-                  Clique numa sugestão para inserir no campo. Nada é enviado sem você.
-                </div>
-              </div>
-            )}
-          </div>
-          {panel.text && (
-            <div className="wz-panel-foot">
-              <button
-                className="wz-btn"
-                onClick={() => {
-                  navigator.clipboard.writeText(panel.text ?? '');
-                  flash('Copiado.');
-                }}
-              >
-                Copiar
-              </button>
-            </div>
-          )}
-        </div>
+      {/* Painel da conversa atual (cada conversa tem o seu) */}
+      {current?.open && (
+        <Panel
+          chatName={chatKey || 'Conversa'}
+          data={current}
+          generation={generation}
+          onClose={closePanel}
+          onFollowup={handleFollowup}
+          onUseSuggestion={useSuggestion}
+          onGeneration={saveGeneration}
+          onCopy={(t) => {
+            navigator.clipboard.writeText(t);
+            flash('Copiado.');
+          }}
+        />
       )}
 
       {toast && (
@@ -302,10 +285,4 @@ export default function App() {
       )}
     </div>
   );
-
-  function runSummary(length: SummaryLength) {
-    const label =
-      length === 'curto' ? 'Resumo curto' : length === 'detalhado' ? 'Resumo detalhado' : 'Resumo da conversa';
-    run(label, undefined, () => summarize(length));
-  }
 }

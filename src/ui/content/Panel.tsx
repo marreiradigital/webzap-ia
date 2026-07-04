@@ -1,0 +1,189 @@
+import { useEffect, useRef, useState } from 'react';
+import type { Session } from './actions';
+import type { GenerationSettings } from '@/src/storage';
+import { GearIcon, SendIcon, SearchIcon, CloseIcon } from './icons';
+
+export interface PanelData {
+  open: boolean;
+  loading: boolean;
+  title: string;
+  error?: string;
+  session?: Session;
+}
+
+interface PanelProps {
+  chatName: string;
+  data: PanelData;
+  generation: GenerationSettings;
+  onClose: () => void;
+  onFollowup: (question: string, useSearch: boolean) => void;
+  onUseSuggestion: (text: string) => void;
+  onGeneration: (patch: Partial<GenerationSettings>) => void;
+  onCopy: (text: string) => void;
+}
+
+export default function Panel({
+  chatName,
+  data,
+  generation,
+  onClose,
+  onFollowup,
+  onUseSuggestion,
+  onGeneration,
+  onCopy,
+}: PanelProps) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [input, setInput] = useState('');
+  const [useSearch, setUseSearch] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  const session = data.session;
+  const isSuggest = !!session?.suggestions;
+  const canChat = !!session && !isSuggest;
+
+  // Rola para o fim quando chegam turnos novos ou muda o estado de carregamento.
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight });
+  }, [session?.display.length, data.loading]);
+
+  function send() {
+    const q = input.trim();
+    if (!q || data.loading) return;
+    onFollowup(q, useSearch);
+    setInput('');
+  }
+
+  return (
+    <div className="wz-panel" role="complementary" aria-label="WebZap - IA">
+      <div className="wz-panel-head">
+        <div className="wz-panel-headtext">
+          <div className="wz-panel-title">{data.title}</div>
+          <div className="wz-panel-sub">{chatName}</div>
+        </div>
+        <div className="wz-panel-actions">
+          <button
+            className={`wz-icon-btn ${settingsOpen ? 'wz-active' : ''}`}
+            title="Limites e regras"
+            onClick={() => setSettingsOpen((v) => !v)}
+          >
+            <GearIcon />
+          </button>
+          <button className="wz-icon-btn" title="Fechar" onClick={onClose}>
+            <CloseIcon />
+          </button>
+        </div>
+      </div>
+
+      {settingsOpen && (
+        <div className="wz-settings">
+          <label className="wz-field">
+            <span>Temperatura: {generation.temperature.toFixed(1)}</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.1}
+              value={generation.temperature}
+              onChange={(e) => onGeneration({ temperature: Number(e.target.value) })}
+            />
+          </label>
+          <label className="wz-field">
+            <span>Limite de tokens da resposta</span>
+            <input
+              type="number"
+              min={256}
+              max={8192}
+              step={128}
+              value={generation.maxTokens}
+              onChange={(e) => onGeneration({ maxTokens: Number(e.target.value) })}
+            />
+          </label>
+          <label className="wz-field">
+            <span>Regras / instruções (aplicadas em tudo)</span>
+            <textarea
+              rows={3}
+              placeholder="Ex.: responda sempre de forma curta e informal, me chame de Paulo."
+              value={generation.rules}
+              onChange={(e) => onGeneration({ rules: e.target.value })}
+            />
+          </label>
+        </div>
+      )}
+
+      <div className="wz-panel-body" ref={bodyRef}>
+        {data.error && <div className="wz-error">{data.error}</div>}
+
+        {isSuggest && session?.suggestions && (
+          <div>
+            {session.suggestions.length === 0 && <div>Nenhuma sugestão gerada.</div>}
+            {session.suggestions.map((s, i) => (
+              <button key={i} className="wz-suggestion" onClick={() => onUseSuggestion(s)}>
+                {s}
+              </button>
+            ))}
+            <div className="wz-hint">
+              Clique numa sugestão para inserir no campo. Nada é enviado sem você.
+            </div>
+          </div>
+        )}
+
+        {!isSuggest &&
+          session?.display.map((turn, i) => (
+            <div key={i} className={`wz-turn wz-turn-${turn.role}`}>
+              <div className="wz-turn-content">{turn.content}</div>
+              {turn.role === 'assistant' && (
+                <button
+                  className="wz-copy"
+                  title="Copiar"
+                  onClick={() => onCopy(turn.content)}
+                >
+                  Copiar
+                </button>
+              )}
+            </div>
+          ))}
+
+        {data.loading && (
+          <div className="wz-turn wz-turn-assistant">
+            <span className="wz-spinner" /> <span className="wz-hint">Gerando…</span>
+          </div>
+        )}
+      </div>
+
+      {canChat && (
+        <div className="wz-panel-foot">
+          <button
+            className={`wz-chip ${useSearch ? 'wz-chip-on' : ''}`}
+            title="Pesquisar na internet ao responder"
+            onClick={() => setUseSearch((v) => !v)}
+          >
+            <SearchIcon size={13} /> Online
+          </button>
+          <div className="wz-composer-row">
+            <textarea
+              className="wz-input"
+              rows={1}
+              placeholder="Pergunte mais, peça detalhes, contexto…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+            />
+            <button
+              className="wz-send"
+              title="Enviar"
+              disabled={!input.trim() || data.loading}
+              onClick={send}
+            >
+              <SendIcon />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
