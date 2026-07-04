@@ -42,16 +42,22 @@ const AUTO_MODES: { id: AutoReplyMode; label: string }[] = [
   { id: 'autosend', label: 'Auto-enviar ⚠️' },
 ];
 
-/** Em grupo, a mensagem parece direcionada ao usuario? (@ ou nome/apelido configurado). */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Em grupo, a mensagem parece direcionada ao usuario? Nome/apelido configurado
+ *  casa como PALAVRA INTEIRA ("chefe" nao casa com "chefeteria"), com ou sem @.
+ *  Sem apelidos configurados, mantem a heuristica de qualquer @. */
 function isDirectedToMe(text: string, mentions: string): boolean {
-  if (text.includes('@')) return true;
   const words = mentions
     .split(',')
-    .map((s) => s.trim().toLowerCase())
+    .map((s) => s.trim())
     .filter(Boolean);
-  if (!words.length) return false;
-  const lower = text.toLowerCase();
-  return words.some((w) => lower.includes(w));
+  if (!words.length) return text.includes('@');
+  return words.some((w) =>
+    new RegExp(`(^|[^\\p{L}\\p{N}])@?${escapeRegExp(w)}($|[^\\p{L}\\p{N}])`, 'iu').test(text),
+  );
 }
 
 interface Anchor {
@@ -88,7 +94,7 @@ export default function App() {
   const [fabOpen, setFabOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [autoByChat, setAutoByChat] = useState<Record<string, AutoReplyMode>>({});
-  const [autoSuggestion, setAutoSuggestion] = useState<string | null>(null);
+  const [autoSuggestion, setAutoSuggestion] = useState<{ chat: string; text: string } | null>(null);
   const [warnAutosend, setWarnAutosend] = useState(false);
   const [autoTrain, setAutoTrain] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -139,8 +145,19 @@ export default function App() {
         setMenu(null);
       }
     };
-    const obs = new MutationObserver(check);
-    obs.observe(document.body, { subtree: true, childList: true, characterData: true });
+    // rAF coalesce: o WhatsApp muta o DOM constantemente; varias mutacoes num
+    // frame viram UMA checagem (e sem characterData, que disparava a cada texto).
+    let scheduled = false;
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(() => {
+        scheduled = false;
+        check();
+      });
+    };
+    const obs = new MutationObserver(schedule);
+    obs.observe(document.body, { subtree: true, childList: true });
     const iv = window.setInterval(check, 800);
     return () => {
       obs.disconnect();
@@ -148,10 +165,15 @@ export default function App() {
     };
   }, []);
 
-  // Botao de acoes injetado em cada bolha (colado na mensagem, sempre visivel).
+  // Botao de acoes injetado em cada bolha (aparece no hover da mensagem).
   useEffect(() => {
     if (!features.enabled || !features.perMessage) return;
-    return setupMessageButtons((anchor, rect) => setMenu({ row: anchor, rect }));
+    return setupMessageButtons((anchor, rect) => {
+      // Entrega a LINHA da mensagem: parseRow/contextWindow dependem dela para
+      // achar o indice e montar o contexto (a bolha sozinha perdia o contexto).
+      const row = (anchor.closest('div[role="row"]') as HTMLElement) ?? anchor;
+      setMenu({ row, rect });
+    });
   }, [features.enabled, features.perMessage]);
 
   // Reposiciona as caixas inline conforme a rolagem.
@@ -167,18 +189,29 @@ export default function App() {
   }, [inlineResults.length]);
 
   // Mantem a barra de ferramentas do campo na posicao (o campo aparece/some ao
-  // abrir/fechar conversa).
+  // abrir/fechar conversa). So re-renderiza quando a posicao do campo MUDA —
+  // um tick incondicional a cada 700ms re-renderizava o App inteiro para sempre.
+  const composerSigRef = useRef('');
   useEffect(() => {
     if (!features.enabled) return;
-    const iv = window.setInterval(() => forceTick((n) => n + 1), 700);
+    const iv = window.setInterval(() => {
+      const r = getComposer()?.getBoundingClientRect();
+      const sig = r && r.width ? `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}` : '';
+      if (sig !== composerSigRef.current) {
+        composerSigRef.current = sig;
+        forceTick((n) => n + 1);
+      }
+    }, 700);
     return () => window.clearInterval(iv);
   }, [features.enabled]);
 
-  // Watcher de auto-resposta (le refs para nao ficar com estado velho).
+  // Watcher de auto-resposta (le refs para nao ficar com estado velho). So fica
+  // ativo quando a conversa aberta tem algum modo ligado — com tudo "off" o scan
+  // nem roda (o WhatsApp muta o DOM o tempo todo).
   useEffect(() => {
     if (!features.enabled) return;
     return setupAutoReplyWatcher(
-      () => enabledRef.current,
+      () => enabledRef.current && (autoRef.current[chatKeyRef.current] ?? 'off') !== 'off',
       (info) => void onIncoming(info),
     );
   }, [features.enabled]);
@@ -211,9 +244,11 @@ export default function App() {
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flash = useCallback((msg: string) => {
     setToast(msg);
-    window.setTimeout(() => setToast(null), 2200);
+    if (toastTimer.current) clearTimeout(toastTimer.current); // toast novo renova o prazo
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
   }, []);
 
   // Otimista: atualiza na hora (slider fluido) e persiste com debounce.
@@ -228,11 +263,16 @@ export default function App() {
     });
   }, []);
 
+  // Streams ativos por conversa — fechar o painel cancela a geracao (abort real
+  // no background, nao gasta tokens a toa).
+  const streamsRef = useRef<Record<string, () => void>>({});
+
   // Transmite a resposta ao vivo para o painel da conversa `key`.
   function streamInto(key: string, input: StreamChatInput) {
     let acc = '';
     let started = false;
-    streamChat(input, {
+    streamsRef.current[key]?.(); // cancela stream anterior da mesma conversa
+    streamsRef.current[key] = streamChat(input, {
       onDelta: (t) => {
         acc += t;
         setPanels((p) => {
@@ -246,6 +286,7 @@ export default function App() {
         started = true;
       },
       onDone: (full) => {
+        delete streamsRef.current[key];
         const finalText = full || acc;
         setPanels((p) => {
           const cur = p[key];
@@ -258,6 +299,7 @@ export default function App() {
         });
       },
       onError: (error) => {
+        delete streamsRef.current[key];
         setPanels((p) => {
           const cur = p[key];
           if (!cur) return p;
@@ -340,6 +382,8 @@ export default function App() {
 
   function closePanel() {
     const key = chatKeyRef.current;
+    streamsRef.current[key]?.(); // aborta a geracao em andamento desta conversa
+    delete streamsRef.current[key];
     setPanels((p) => {
       const n = { ...p };
       delete n[key];
@@ -372,12 +416,16 @@ export default function App() {
     if (!res.ok) return; // silencioso: nao atrapalha a conversa
     const reply = res.text.trim();
     if (!reply || reply.toUpperCase().includes('[SKIP]')) return;
-    if (mode === 'suggest') {
-      setAutoSuggestion(reply);
-    } else if (mode === 'draft') {
+    // Re-checa DEPOIS da geracao: se o usuario trocou de conversa ou desligou o
+    // modo enquanto a IA gerava, nao insere/envia no chat errado.
+    const modeNow = autoRef.current[info.chat] ?? 'off';
+    if (modeNow === 'off' || chatKeyRef.current !== info.chat) return;
+    if (modeNow === 'suggest') {
+      setAutoSuggestion({ chat: info.chat, text: reply });
+    } else if (modeNow === 'draft') {
       insertIntoComposer(reply);
       flash('Rascunho de resposta inserido — revise e envie.');
-    } else if (mode === 'autosend') {
+    } else if (modeNow === 'autosend') {
       sendMessage(reply);
       flash('Resposta enviada automaticamente.');
     }
@@ -610,7 +658,14 @@ export default function App() {
         const r = el.getBoundingClientRect();
         if (!r.width) return null;
         return (
-          <div className="wz-tools" style={{ left: Math.max(6, r.left), top: Math.max(6, r.top - 46) }}>
+          <div
+            className="wz-tools"
+            style={{
+              left: Math.max(6, r.right - 6),
+              top: Math.max(6, r.top - 44),
+              transform: 'translateX(-100%)',
+            }}
+          >
             <button
               className={`wz-tool ${recording ? 'wz-tool-rec' : ''}`}
               title={recording ? 'Parar e transcrever' : 'Ditar (gravar e transcrever)'}
@@ -738,11 +793,12 @@ export default function App() {
         />
       )}
 
-      {/* Cartao de sugestao de auto-resposta (modo "sugerir") */}
-      {autoSuggestion && (
+      {/* Cartao de sugestao de auto-resposta (modo "sugerir") — amarrado a conversa
+          em que a mensagem chegou: some ao trocar de chat (nao insere no chat errado). */}
+      {autoSuggestion && autoSuggestion.chat === chatKey && (
         <div className="wz-autocard">
           <div className="wz-autocard-head">🤖 Resposta sugerida</div>
-          <div className="wz-autocard-body">{autoSuggestion}</div>
+          <div className="wz-autocard-body">{autoSuggestion.text}</div>
           <div className="wz-autocard-foot">
             <button className="wz-btn" onClick={() => setAutoSuggestion(null)}>
               Ignorar
@@ -750,7 +806,7 @@ export default function App() {
             <button
               className="wz-btn wz-btn-primary"
               onClick={() => {
-                insertIntoComposer(autoSuggestion);
+                insertIntoComposer(autoSuggestion.text);
                 setAutoSuggestion(null);
                 flash('Inserido no campo (revise e envie).');
               }}

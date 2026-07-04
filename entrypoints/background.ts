@@ -22,24 +22,34 @@ export default defineBackground(() => {
   // Streaming de chat via porta (escrita ao vivo, token a token).
   browser.runtime.onConnect.addListener((port) => {
     if (port.name !== 'wz-chat') return;
+    // Se o content fechar a porta (painel fechado / aba morta), aborta o fetch
+    // no provedor — sem isso a geracao continuava rodando e gastando tokens.
+    const aborter = new AbortController();
+    port.onDisconnect.addListener(() => aborter.abort());
     port.onMessage.addListener(async (msg: ChatMsg) => {
       try {
         const config = await getConfig();
         const { provider, creds, req } = await prepareChat(config, msg);
         if (provider.chatStream) {
           let full = '';
-          await provider.chatStream(req, creds, (delta) => {
-            full += delta;
-            safePost(port, { type: 'delta', text: delta });
-          });
+          await provider.chatStream(
+            req,
+            creds,
+            (delta) => {
+              full += delta;
+              safePost(port, { type: 'delta', text: delta });
+            },
+            aborter.signal,
+          );
           safePost(port, { type: 'done', text: full });
         } else {
           // Fallback: sem streaming, envia a resposta inteira de uma vez.
-          const { text } = await provider.chat(req, creds);
+          const { text } = await provider.chat(req, creds, aborter.signal);
           safePost(port, { type: 'delta', text });
           safePost(port, { type: 'done', text });
         }
       } catch (err) {
+        if ((err as Error)?.name === 'AbortError') return; // cancelado pelo usuario
         safePost(port, {
           type: 'error',
           error: err instanceof ProviderError ? err.message : (err as Error)?.message ?? 'Erro inesperado.',

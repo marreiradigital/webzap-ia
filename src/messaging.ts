@@ -55,7 +55,9 @@ export interface StreamHandlers {
 /** Chat em streaming (escrita ao vivo) via porta. Retorna funcao para cancelar. */
 export function streamChat(input: StreamChatInput, handlers: StreamHandlers): () => void {
   const port = browser.runtime.connect({ name: 'wz-chat' });
+  let finished = false;
   const close = () => {
+    finished = true;
     try {
       port.disconnect();
     } catch {
@@ -71,6 +73,13 @@ export function streamChat(input: StreamChatInput, handlers: StreamHandlers): ()
       handlers.onError(m.error ?? 'Erro no streaming.');
       close();
     }
+  });
+  // Se o service worker cair no meio da geracao, a porta desconecta sem 'done' —
+  // sem este handler o painel ficava em "Gerando…" para sempre.
+  port.onDisconnect.addListener(() => {
+    if (finished) return;
+    finished = true;
+    handlers.onError('A conexão com o serviço de fundo caiu no meio da geração. Tente novamente.');
   });
   port.postMessage({ kind: 'chat', ...input });
   return close;
