@@ -2,6 +2,15 @@
 
 Todas as mudanças notáveis do **WebZap - IA**. Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.7.0] - 2026-07-04
+
+### Adicionado
+- **Provedor principal + reservas (failover automático)**: nova seção "Prioridade e reservas" nas Opções. Você define o provedor principal (um por vez, com "Tornar principal") e a ordem das reservas (↑/↓). Se o principal falhar numa chamada (erro, limite, fora do ar), a Reserva 1 assume **na mesma chamada**; se ela falhar, a Reserva 2 — e assim por diante. Vale para chat, streaming (antes do primeiro token), transcrição, embeddings e TTS.
+- Cards de provedor mostram o papel atual (Principal / Reserva N); o popup mostra "Principal: X · Reservas: Y, Z".
+
+### Alterado
+- "Modelo por tarefa" continua existindo e tem precedência sobre a ordem; em "Automático", a tarefa segue a cadeia de prioridade.
+
 ## [0.6.3] - 2026-07-04
 
 Revisão geral de fluxos, performance e robustez (auditoria completa do código).

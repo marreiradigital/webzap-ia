@@ -30,6 +30,7 @@ src/messaging.ts            -> protocolo tipado content <-> background
 ## Fonte única (não duplicar!)
 
 - **Seletores do WhatsApp** → só em [`src/wa/selectors.ts`](./src/wa/selectors.ts). Nunca hardcode `div[role="row"]`, `#main`, etc. espalhado. Ao adaptar a mudanças do WhatsApp, mexa só aqui (guia: [`.claude/HARNESS/atualizar-seletores.md`](./.claude/HARNESS/atualizar-seletores.md)).
+- **Failover de provedores** → `config.providerOrder` (principal → reservas) com `resolveChain`/`eligibleProviders` em `src/ai/resolve.ts`; o background tenta a cadeia em ordem quando uma chamada falha. Ordem editável nas Opções ("Prioridade e reservas").
 - **Provedores** → registrados só em [`src/providers/registry.ts`](./src/providers/registry.ts). Para adicionar um: implemente `ProviderModule` e registre ali (guia: [`.claude/HARNESS/adicionar-provider.md`](./.claude/HARNESS/adicionar-provider.md)).
 - **Endpoints/hosts** → cada provedor tem sua base no próprio arquivo; `host_permissions` só em `wxt.config.ts`. Não espalhe URLs.
 - **Prompts** → só em [`src/ai/prompts.ts`](./src/ai/prompts.ts).
