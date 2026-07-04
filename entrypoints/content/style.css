@@ -186,6 +186,53 @@
   border-top: 1px solid var(--wz-border);
 }
 
+/* Caixa de transcricao inline (embaixo da bolha) */
+.wz-inline {
+  position: fixed;
+  z-index: 2147483000;
+  background: var(--wz-bg);
+  border: 1px solid var(--wz-border);
+  border-left: 3px solid var(--wz-accent);
+  border-radius: 8px;
+  box-shadow: var(--wz-shadow);
+  pointer-events: auto;
+  overflow: hidden;
+}
+.wz-inline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wz-fg-soft);
+  border-bottom: 1px solid var(--wz-border);
+}
+.wz-inline-close {
+  border: none;
+  background: transparent;
+  color: var(--wz-fg-soft);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.wz-inline-close:hover {
+  color: var(--wz-fg);
+  background: var(--wz-bg-soft);
+}
+.wz-inline-body {
+  padding: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
 /* Mini botao que segue a mensagem sob o cursor */
 .wz-hover-btn {
   position: fixed;

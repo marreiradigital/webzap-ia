@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { HOST_TAG } from './constants';
 import {
   prepSummary,
   prepExplain,
@@ -6,17 +7,16 @@ import {
   prepSearchConversation,
   prepSearchMessage,
   suggest,
-  transcribe,
+  transcribeText,
   learnFromChat,
   followupInput,
   type Prep,
   type Session,
 } from './actions';
 import Panel, { type PanelData } from './Panel';
-import { RobotIcon, MicIcon, ImageIcon, LightbulbIcon, SearchIcon } from './icons';
+import { RobotIcon, StarsIcon, MicIcon, ImageIcon, LightbulbIcon, SearchIcon } from './icons';
 import { insertIntoComposer, sendMessage } from '@/src/wa/composer';
 import { detectKind } from '@/src/wa/message-nodes';
-import { setupMessageButtons } from '@/src/wa/inject-buttons';
 import { setupAutoReplyWatcher, type IncomingInfo } from '@/src/wa/auto-reply';
 import { readHeaderTitle, readVisibleChat } from '@/src/wa/chat-reader';
 import { callBackground, streamChat, type StreamChatInput } from '@/src/messaging';
@@ -44,6 +44,14 @@ interface Anchor {
   rect: DOMRect;
 }
 
+interface InlineResult {
+  id: number;
+  anchor: HTMLElement;
+  loading: boolean;
+  text?: string;
+  error?: string;
+}
+
 const KIND_TITLE: Record<MediaKind, string> = {
   text: 'Esta mensagem',
   audio: 'Mensagem de áudio',
@@ -59,6 +67,11 @@ export default function App() {
   const [chatKey, setChatKey] = useState('');
   const [panels, setPanels] = useState<Record<string, PanelData>>({});
   const [menu, setMenu] = useState<Anchor | null>(null);
+  const [hover, setHover] = useState<{ el: HTMLElement; out: boolean } | null>(null);
+  const [inlineResults, setInlineResults] = useState<InlineResult[]>([]);
+  const [, forceTick] = useState(0);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inlineIdRef = useRef(0);
   const [fabOpen, setFabOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [autoByChat, setAutoByChat] = useState<Record<string, AutoReplyMode>>({});
@@ -113,11 +126,42 @@ export default function App() {
     };
   }, []);
 
-  // Botoes injetados em cada mensagem (ancorados a bolha, rolam junto).
+  // Botao de acoes ancorado a bolha sob o cursor (overlay no shadow root: nao
+  // conflita com o React do WhatsApp, fica colado na mensagem).
   useEffect(() => {
     if (!features.enabled || !features.perMessage) return;
-    return setupMessageButtons((row, rect) => setMenu({ row, rect }));
+    function onMove(e: MouseEvent) {
+      const t = e.target as HTMLElement | null;
+      if (!t?.tagName) return;
+      if (t.tagName.toLowerCase() === HOST_TAG) {
+        if (hideTimer.current) clearTimeout(hideTimer.current); // sobre a nossa UI
+        return;
+      }
+      const main = document.getElementById('main');
+      const bubble = t.closest?.('.message-in, .message-out') as HTMLElement | null;
+      if (main && bubble && main.contains(bubble)) {
+        if (hideTimer.current) clearTimeout(hideTimer.current);
+        setHover({ el: bubble, out: bubble.matches('.message-out') });
+      } else {
+        if (hideTimer.current) clearTimeout(hideTimer.current);
+        hideTimer.current = setTimeout(() => setHover(null), 250);
+      }
+    }
+    document.addEventListener('mousemove', onMove, { passive: true });
+    return () => document.removeEventListener('mousemove', onMove);
   }, [features.enabled, features.perMessage]);
+
+  // Reposiciona o botao de hover e as caixas inline conforme a rolagem.
+  useEffect(() => {
+    if (!hover && inlineResults.length === 0) return;
+    const onScroll = () => forceTick((n) => n + 1);
+    document.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      document.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [hover, inlineResults.length]);
 
   // Watcher de auto-resposta (le refs para nao ficar com estado velho).
   useEffect(() => {
@@ -353,6 +397,26 @@ export default function App() {
       .catch((err) => flash((err as Error).message));
   }
 
+  // Transcricao aparece numa caixinha embaixo da propria bolha (nao no painel).
+  function runTranscribeInline(row: HTMLElement) {
+    setMenu(null);
+    const id = (inlineIdRef.current += 1);
+    setInlineResults((r) => [...r, { id, anchor: row, loading: true }]);
+    transcribeText(row)
+      .then((text) =>
+        setInlineResults((r) => r.map((x) => (x.id === id ? { ...x, loading: false, text } : x))),
+      )
+      .catch((err) =>
+        setInlineResults((r) =>
+          r.map((x) => (x.id === id ? { ...x, loading: false, error: (err as Error).message } : x)),
+        ),
+      );
+  }
+
+  function closeInline(id: number) {
+    setInlineResults((r) => r.filter((x) => x.id !== id));
+  }
+
   function runSummary(length: SummaryLength) {
     runStream(() => prepSummary(length), 'Resumo');
   }
@@ -365,6 +429,62 @@ export default function App() {
 
   return (
     <div className="wz-root">
+      {/* Botao de acoes ancorado a bolha sob o cursor */}
+      {hover &&
+        features.perMessage &&
+        (() => {
+          const rect = hover.el.getBoundingClientRect();
+          if (rect.height === 0) return null;
+          const top = Math.max(6, Math.min(window.innerHeight - 32, rect.top + rect.height / 2 - 13));
+          const left = hover.out
+            ? Math.max(6, rect.left - 32)
+            : Math.min(window.innerWidth - 32, rect.right + 6);
+          return (
+            <button
+              className="wz-hover-btn"
+              style={{ top, left }}
+              title="Ações de IA nesta mensagem"
+              onClick={() => {
+                const row = (hover.el.closest('div[role="row"]') as HTMLElement) ?? hover.el;
+                setMenu({ row, rect });
+              }}
+            >
+              <StarsIcon size={15} />
+            </button>
+          );
+        })()}
+
+      {/* Caixas de transcricao inline (embaixo da bolha) */}
+      {inlineResults.map((res) => {
+        if (!res.anchor.isConnected) return null;
+        const rect = res.anchor.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) return null;
+        const left = Math.max(8, Math.min(window.innerWidth - 320, rect.left));
+        return (
+          <div
+            key={res.id}
+            className="wz-inline"
+            style={{ top: rect.bottom + 4, left, maxWidth: Math.min(380, window.innerWidth - 16) }}
+          >
+            <div className="wz-inline-head">
+              <span>🎙️ Transcrição</span>
+              <button className="wz-inline-close" title="Fechar" onClick={() => closeInline(res.id)}>
+                ✕
+              </button>
+            </div>
+            <div className="wz-inline-body">
+              {res.loading && (
+                <span>
+                  <span className="wz-spinner" /> Transcrevendo…
+                </span>
+              )}
+              {res.error && <span className="wz-error">{res.error}</span>}
+              {res.text && <span>{res.text}</span>}
+            </div>
+          </div>
+        );
+      })}
+
       {/* Menu de acoes por mensagem (contextual ao tipo de midia) */}
       {menu && (
         <div
@@ -382,7 +502,7 @@ export default function App() {
             <button
               className="wz-menu-item"
               disabled={!features.transcribe}
-              onClick={() => runSession('Transcrição do áudio', () => transcribe(menu.row))}
+              onClick={() => runTranscribeInline(menu.row)}
             >
               <MicIcon /> Transcrever áudio
             </button>

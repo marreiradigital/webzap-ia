@@ -6,7 +6,8 @@ Oferecer ações de IA numa mensagem específica sem poluir o DOM do WhatsApp co
 
 ## UX
 
-- Cada bolha de mensagem ganha um **botão de IA injetado** ([`inject-buttons.ts`](../../src/wa/inject-buttons.ts), light DOM), ancorado ao lado da bolha e que **rola junto** com a mensagem (não some fora do hover, não fica preso no canto). Clicar abre o menu de ações (no shadow root) posicionado no botão.
+- Ao passar o mouse sobre uma mensagem, aparece um **botão de IA (estrelas)** ancorado à bolha, ao lado dela (à direita das recebidas, à esquerda das enviadas), **reposicionado na rolagem**. É um **overlay no shadow root** — não injetamos no DOM do WhatsApp (o React dele removeria o nó/classe no re-render, fazendo o ícone sumir). Clicar abre o menu de ações.
+- **Transcrição** não abre no painel: aparece numa **caixinha inline logo abaixo da própria bolha** (também overlay, reposicionada na rolagem, com fechar). As demais ações (explicar/descrever/pesquisar) abrem no painel-chat.
 - Clique abre um menu **contextual ao tipo de mídia** (detectado por `detectKind`):
   - **texto**: Explicar do que se trata.
   - **áudio**: Explicar + **Transcrever áudio**.

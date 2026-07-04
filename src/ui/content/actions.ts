@@ -8,7 +8,6 @@ import {
   buildDescribeImagePrompt,
   buildSearchConversationPrompt,
   buildSearchMessagePrompt,
-  buildTranscriptionSeed,
   buildTrainingExtraction,
   type SummaryLength,
 } from '@/src/ai/prompts';
@@ -174,7 +173,8 @@ export async function learnFromChat(): Promise<number> {
   return Number(save.text) || 0;
 }
 
-export async function transcribe(row: HTMLElement): Promise<Session> {
+/** Transcreve o audio e devolve so o texto (exibido inline embaixo da bolha). */
+export async function transcribeText(row: HTMLElement): Promise<string> {
   const audio = await extractAudio(row);
   if (!audio) {
     const found = document.querySelectorAll('#main audio').length;
@@ -188,10 +188,5 @@ export async function transcribe(row: HTMLElement): Promise<Session> {
     mimeType: audio.mimeType,
   });
   if (!res.ok) throw new Error(res.error);
-  return {
-    title: 'Transcrição do áudio',
-    task: 'explain',
-    thread: buildTranscriptionSeed(res.text),
-    display: [{ role: 'assistant', content: res.text }],
-  };
+  return res.text;
 }
