@@ -13,20 +13,18 @@ function ensureStyles() {
   const style = document.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-    .${ANCHOR_CLASS} { position: relative; }
+    .${ANCHOR_CLASS} { position: relative; overflow: visible !important; }
     .${BTN_CLASS} {
-      position: absolute; top: 50%; transform: translateY(-50%);
+      position: absolute; top: 4px; right: 4px;
       width: 24px; height: 24px; border-radius: 50%;
       display: inline-flex; align-items: center; justify-content: center;
       border: 1px solid rgba(0,0,0,.12); background: #ffffff; color: #1da851;
-      cursor: pointer; opacity: .5; transition: opacity .12s ease;
-      box-shadow: 0 2px 8px rgba(0,0,0,.18); z-index: 30; padding: 0;
+      cursor: pointer; opacity: .6; transition: opacity .12s ease, transform .12s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,.22); z-index: 50; padding: 0;
     }
-    .${BTN_CLASS}:hover { opacity: 1; }
-    .message-in.${ANCHOR_CLASS} > .${BTN_CLASS} { right: -30px; }
-    .message-out.${ANCHOR_CLASS} > .${BTN_CLASS} { left: -30px; }
+    .${BTN_CLASS}:hover { opacity: 1; transform: scale(1.08); }
     @media (prefers-color-scheme: dark) {
-      .${BTN_CLASS} { background: #233138; color: #25d366; border-color: rgba(255,255,255,.12); }
+      .${BTN_CLASS} { background: #233138; color: #25d366; border-color: rgba(255,255,255,.14); }
     }
   `;
   document.head.appendChild(style);

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Session } from './actions';
 import type { GenerationSettings } from '@/src/storage';
 import { GearIcon, SendIcon, SearchIcon, CloseIcon } from './icons';
+import { Markdown } from './Markdown';
 
 export interface PanelData {
   open: boolean;
@@ -41,10 +42,11 @@ export default function Panel({
   const isSuggest = !!session?.suggestions;
   const canChat = !!session && !isSuggest;
 
-  // Rola para o fim quando chegam turnos novos ou muda o estado de carregamento.
+  // Rola para o fim conforme o texto chega (streaming), turnos novos ou carregamento.
+  const lastLen = session?.display[session.display.length - 1]?.content.length ?? 0;
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight });
-  }, [session?.display.length, data.loading]);
+  }, [session?.display.length, lastLen, data.loading]);
 
   function send() {
     const q = input.trim();
@@ -130,7 +132,9 @@ export default function Panel({
         {!isSuggest &&
           session?.display.map((turn, i) => (
             <div key={i} className={`wz-turn wz-turn-${turn.role}`}>
-              <div className="wz-turn-content">{turn.content}</div>
+              <div className="wz-turn-content">
+                {turn.role === 'assistant' ? <Markdown text={turn.content} /> : turn.content}
+              </div>
               {turn.role === 'assistant' && (
                 <button
                   className="wz-copy"

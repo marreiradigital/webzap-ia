@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PROVIDER_IDS, PROVIDERS } from '@/src/providers/registry';
 import type { ProviderId } from '@/src/providers/types';
 import {
   getConfig,
-  updateConfig,
+  setConfig,
   type ProviderConfig,
   type TaskKind,
   type WebzapConfig,
@@ -35,17 +35,27 @@ const FEATURE_LABELS: { key: keyof WebzapConfig['features']; label: string; help
 export default function OptionsApp() {
   const [cfg, setCfg] = useState<WebzapConfig | null>(null);
   const [saved, setSaved] = useState(false);
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     getConfig().then(setCfg);
   }, []);
 
-  async function patch(fn: (c: WebzapConfig) => WebzapConfig) {
-    const next = await updateConfig(fn);
-    setCfg(next);
-    setSaved(true);
-    window.clearTimeout((patch as any)._t);
-    (patch as any)._t = window.setTimeout(() => setSaved(false), 1400);
+  // Atualiza o estado local na hora (evita lag no slider) e persiste com debounce.
+  function patch(fn: (c: WebzapConfig) => WebzapConfig) {
+    setCfg((prev) => {
+      if (!prev) return prev;
+      const next = fn(prev);
+      if (persistTimer.current) clearTimeout(persistTimer.current);
+      persistTimer.current = setTimeout(() => {
+        setConfig(next);
+        setSaved(true);
+        if (savedTimer.current) clearTimeout(savedTimer.current);
+        savedTimer.current = setTimeout(() => setSaved(false), 1400);
+      }, 250);
+      return next;
+    });
   }
 
   if (!cfg) {

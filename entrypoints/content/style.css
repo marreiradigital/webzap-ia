@@ -407,3 +407,86 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* Markdown renderizado nas respostas */
+.wz-turn-assistant .wz-turn-content {
+  white-space: normal;
+}
+.wz-md {
+  line-height: 1.5;
+}
+.wz-md > *:first-child {
+  margin-top: 0;
+}
+.wz-md > *:last-child {
+  margin-bottom: 0;
+}
+.wz-md p {
+  margin: 0 0 8px;
+}
+.wz-md h1,
+.wz-md h2,
+.wz-md h3,
+.wz-md h4 {
+  margin: 12px 0 6px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.wz-md h1 { font-size: 1.2em; }
+.wz-md h2 { font-size: 1.1em; }
+.wz-md h3 { font-size: 1em; }
+.wz-md ul,
+.wz-md ol {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+.wz-md li {
+  margin: 2px 0;
+}
+.wz-md a {
+  color: var(--wz-accent-strong);
+  text-decoration: underline;
+}
+.wz-md code {
+  background: rgba(127, 127, 127, 0.18);
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 0.9em;
+}
+.wz-md pre {
+  background: rgba(127, 127, 127, 0.15);
+  padding: 10px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.wz-md pre code {
+  background: none;
+  padding: 0;
+}
+.wz-md blockquote {
+  border-left: 3px solid var(--wz-border);
+  margin: 8px 0;
+  padding-left: 10px;
+  color: var(--wz-fg-soft);
+}
+.wz-md table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  display: block;
+  overflow-x: auto;
+}
+.wz-md th,
+.wz-md td {
+  border: 1px solid var(--wz-border);
+  padding: 4px 8px;
+}
+.wz-md img {
+  max-width: 100%;
+}
+.wz-md hr {
+  border: none;
+  border-top: 1px solid var(--wz-border);
+  margin: 10px 0;
+}

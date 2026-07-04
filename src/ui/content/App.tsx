@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  summarize,
+  prepSummary,
+  prepExplain,
+  prepDescribe,
+  prepSearchConversation,
+  prepSearchMessage,
   suggest,
-  explain,
   transcribe,
-  describeImage,
-  searchConversation,
-  searchMessage,
-  followUp,
+  followupInput,
+  type Prep,
   type Session,
 } from './actions';
 import Panel, { type PanelData } from './Panel';
@@ -16,7 +17,7 @@ import { insertIntoComposer } from '@/src/wa/composer';
 import { detectKind } from '@/src/wa/message-nodes';
 import { setupMessageButtons } from '@/src/wa/inject-buttons';
 import { readHeaderTitle } from '@/src/wa/chat-reader';
-import { callBackground } from '@/src/messaging';
+import { callBackground, streamChat, type StreamChatInput } from '@/src/messaging';
 import {
   watchConfig,
   getConfig,
@@ -51,6 +52,7 @@ export default function App() {
   const [fabOpen, setFabOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const chatKeyRef = useRef('');
+  const genTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Config (features + geracao), com observacao de mudancas.
   useEffect(() => {
@@ -111,15 +113,95 @@ export default function App() {
     window.setTimeout(() => setToast(null), 2200);
   }, []);
 
-  const saveGeneration = useCallback(async (patch: Partial<GenerationSettings>) => {
-    const next = await updateConfig((c) => ({
-      ...c,
-      generation: { ...c.generation, ...patch },
-    }));
-    setGeneration(next.generation);
+  // Otimista: atualiza na hora (slider fluido) e persiste com debounce.
+  const saveGeneration = useCallback((patch: Partial<GenerationSettings>) => {
+    setGeneration((prev) => {
+      const next = { ...prev, ...patch };
+      if (genTimer.current) clearTimeout(genTimer.current);
+      genTimer.current = setTimeout(() => {
+        updateConfig((c) => ({ ...c, generation: next }));
+      }, 250);
+      return next;
+    });
   }, []);
 
-  async function runAction(fallbackTitle: string, fn: () => Promise<Session>) {
+  // Transmite a resposta ao vivo para o painel da conversa `key`.
+  function streamInto(key: string, input: StreamChatInput) {
+    let acc = '';
+    let started = false;
+    streamChat(input, {
+      onDelta: (t) => {
+        acc += t;
+        setPanels((p) => {
+          const cur = p[key];
+          if (!cur?.session) return p;
+          const display = [...cur.session.display];
+          if (!started) display.push({ role: 'assistant', content: acc });
+          else display[display.length - 1] = { role: 'assistant', content: acc };
+          return { ...p, [key]: { ...cur, loading: false, session: { ...cur.session, display } } };
+        });
+        started = true;
+      },
+      onDone: (full) => {
+        const finalText = full || acc;
+        setPanels((p) => {
+          const cur = p[key];
+          if (!cur?.session) return p;
+          const display = [...cur.session.display];
+          if (!started && finalText) display.push({ role: 'assistant', content: finalText });
+          else if (display.length) display[display.length - 1] = { role: 'assistant', content: finalText };
+          const thread = [...input.messages, { role: 'assistant' as const, content: finalText }];
+          return { ...p, [key]: { ...cur, loading: false, session: { ...cur.session, thread, display } } };
+        });
+      },
+      onError: (error) => {
+        setPanels((p) => {
+          const cur = p[key];
+          if (!cur) return p;
+          return { ...p, [key]: { ...cur, loading: false, error } };
+        });
+      },
+    });
+  }
+
+  // Acao de chat com streaming (resumir/explicar/descrever/pesquisar).
+  function runStream(thunk: () => Prep | Promise<Prep>, fallbackTitle: string) {
+    setMenu(null);
+    setFabOpen(false);
+    const key = chatKeyRef.current;
+    setPanels((p) => ({ ...p, [key]: { open: true, loading: true, title: fallbackTitle } }));
+    Promise.resolve()
+      .then(thunk)
+      .then((prep) => {
+        const session: Session = {
+          title: prep.title,
+          task: prep.task,
+          thread: [...prep.thread],
+          display: [],
+          images: prep.images,
+          searchDefault: prep.search,
+          chatName: prep.chatName,
+        };
+        setPanels((p) => ({ ...p, [key]: { open: true, loading: true, title: prep.title, session } }));
+        streamInto(key, {
+          task: prep.task,
+          messages: prep.thread,
+          images: prep.images,
+          search: prep.search,
+          chatName: prep.chatName,
+          usePersona: prep.usePersona,
+        });
+      })
+      .catch((err) => {
+        setPanels((p) => ({
+          ...p,
+          [key]: { open: true, loading: false, title: fallbackTitle, error: (err as Error).message },
+        }));
+      });
+  }
+
+  // Acao sem streaming (sugerir/transcrever).
+  async function runSession(fallbackTitle: string, fn: () => Promise<Session>) {
     setMenu(null);
     setFabOpen(false);
     const key = chatKeyRef.current;
@@ -135,17 +217,22 @@ export default function App() {
     }
   }
 
-  async function handleFollowup(question: string, useSearch: boolean) {
+  function handleFollowup(question: string, useSearch: boolean) {
     const key = chatKeyRef.current;
     const cur = panels[key];
     if (!cur?.session) return;
-    setPanels((p) => ({ ...p, [key]: { ...cur, loading: true, error: undefined } }));
-    try {
-      const next = await followUp(cur.session, question, useSearch);
-      setPanels((p) => ({ ...p, [key]: { ...p[key], loading: false, title: next.title, session: next } }));
-    } catch (err) {
-      setPanels((p) => ({ ...p, [key]: { ...p[key], loading: false, error: (err as Error).message } }));
-    }
+    const session = cur.session;
+    const input = followupInput(session, question, useSearch);
+    setPanels((p) => ({
+      ...p,
+      [key]: {
+        ...cur,
+        loading: true,
+        error: undefined,
+        session: { ...session, display: [...session.display, { role: 'user', content: question }] },
+      },
+    }));
+    streamInto(key, input);
   }
 
   function closePanel() {
@@ -163,7 +250,7 @@ export default function App() {
   }
 
   function runSummary(length: SummaryLength) {
-    runAction('Resumo', () => summarize(length));
+    runStream(() => prepSummary(length), 'Resumo');
   }
 
   if (!features.enabled) return null;
@@ -183,24 +270,24 @@ export default function App() {
           }}
         >
           <div className="wz-menu-title">{KIND_TITLE[menuKind]}</div>
-          <button className="wz-menu-item" onClick={() => runAction('Explicar mensagem', () => explain(menu.row))}>
+          <button className="wz-menu-item" onClick={() => runStream(() => prepExplain(menu.row), 'Explicar mensagem')}>
             <LightbulbIcon /> Explicar do que se trata
           </button>
           {menuKind === 'audio' && (
             <button
               className="wz-menu-item"
               disabled={!features.transcribe}
-              onClick={() => runAction('Transcrição do áudio', () => transcribe(menu.row))}
+              onClick={() => runSession('Transcrição do áudio', () => transcribe(menu.row))}
             >
               <MicIcon /> Transcrever áudio
             </button>
           )}
           {menuKind === 'image' && (
-            <button className="wz-menu-item" onClick={() => runAction('Descrição da imagem', () => describeImage(menu.row))}>
+            <button className="wz-menu-item" onClick={() => runStream(() => prepDescribe(menu.row), 'Descrição da imagem')}>
               <ImageIcon /> Descrever imagem
             </button>
           )}
-          <button className="wz-menu-item" onClick={() => runAction('Pesquisa online', () => searchMessage(menu.row))}>
+          <button className="wz-menu-item" onClick={() => runStream(() => prepSearchMessage(menu.row), 'Pesquisa online')}>
             <SearchIcon /> Pesquisar online
           </button>
           {(menuKind === 'video' || menuKind === 'document') && (
@@ -239,12 +326,21 @@ export default function App() {
             </>
           )}
           {features.suggest && (
-            <button className="wz-menu-item" onClick={() => runAction('Sugestões de resposta', () => suggest())}>
+            <button className="wz-menu-item" onClick={() => runSession('Sugestões de resposta', () => suggest())}>
               ✨ Sugerir resposta
             </button>
           )}
-          <button className="wz-menu-item" onClick={() => runAction('Pesquisa online', () => searchConversation())}>
+          <button className="wz-menu-item" onClick={() => runStream(() => prepSearchConversation(), 'Pesquisa online')}>
             <SearchIcon /> Pesquisar online
+          </button>
+          <button
+            className="wz-menu-item"
+            onClick={() => {
+              setFabOpen(false);
+              callBackground({ kind: 'openMemory' });
+            }}
+          >
+            🧠 Persona & Memória
           </button>
           <button
             className="wz-menu-item"
