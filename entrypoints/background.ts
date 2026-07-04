@@ -1,8 +1,8 @@
 import { defineBackground, browser } from '#imports';
 import { getConfig, type WebzapConfig } from '@/src/storage';
-import { resolveTask, resolveEmbed, resolveTts } from '@/src/ai/resolve';
+import { resolveChain, resolveEmbed, resolveTts, type ResolvedTask } from '@/src/ai/resolve';
 import { getProvider } from '@/src/providers/registry';
-import { ProviderError, type ChatRequest, type ProviderCredentials, type ProviderModule } from '@/src/providers/types';
+import { ProviderError, type ChatRequest } from '@/src/providers/types';
 import { activeMemories, addMemory, memoryExists } from '@/src/memory/db';
 import { selectRelevant, selectRelevantSemantic, personaSystemPrompt } from '@/src/memory/retriever';
 import type { BgRequest, BgResponse } from '@/src/messaging';
@@ -27,29 +27,45 @@ export default defineBackground(() => {
     const aborter = new AbortController();
     port.onDisconnect.addListener(() => aborter.abort());
     port.onMessage.addListener(async (msg: ChatMsg) => {
+      let started = false; // ja emitimos algum delta?
       try {
         const config = await getConfig();
-        const { provider, creds, req } = await prepareChat(config, msg);
-        if (provider.chatStream) {
-          let full = '';
-          await provider.chatStream(
-            req,
-            creds,
-            (delta) => {
-              full += delta;
-              safePost(port, { type: 'delta', text: delta });
-            },
-            aborter.signal,
-          );
-          safePost(port, { type: 'done', text: full });
-        } else {
-          // Fallback: sem streaming, envia a resposta inteira de uma vez.
-          const { text } = await provider.chat(req, creds, aborter.signal);
-          safePost(port, { type: 'delta', text });
-          safePost(port, { type: 'done', text });
+        const { chain, req } = await prepareChat(config, msg);
+        let lastErr: unknown = null;
+        for (const { provider, model, creds } of chain) {
+          try {
+            if (provider.chatStream) {
+              let full = '';
+              await provider.chatStream(
+                { ...req, model },
+                creds,
+                (delta) => {
+                  full += delta;
+                  started = true;
+                  safePost(port, { type: 'delta', text: delta });
+                },
+                aborter.signal,
+              );
+              safePost(port, { type: 'done', text: full });
+            } else {
+              // Sem streaming: envia a resposta inteira de uma vez.
+              const { text } = await provider.chat({ ...req, model }, creds, aborter.signal);
+              started = true;
+              safePost(port, { type: 'delta', text });
+              safePost(port, { type: 'done', text });
+            }
+            return; // sucesso — nao tenta as reservas
+          } catch (err) {
+            if ((err as Error)?.name === 'AbortError') return; // cancelado pelo usuario
+            lastErr = err;
+            // Failover: so faz sentido tentar a reserva se NADA foi transmitido
+            // ainda (no meio do texto viraria resposta duplicada/misturada).
+            if (started) break;
+          }
         }
+        throw lastErr ?? new Error('Nenhum provedor disponível.');
       } catch (err) {
-        if ((err as Error)?.name === 'AbortError') return; // cancelado pelo usuario
+        if ((err as Error)?.name === 'AbortError') return;
         safePost(port, {
           type: 'error',
           error: err instanceof ProviderError ? err.message : (err as Error)?.message ?? 'Erro inesperado.',
@@ -67,17 +83,20 @@ function safePost(port: { postMessage: (msg: unknown) => void }, msg: unknown) {
   }
 }
 
-/** Monta provider + creds + ChatRequest final (persona, regras, limites) para uma msg de chat. */
+/** Monta a CADEIA de provedores (principal + reservas) e o ChatRequest final
+ *  (persona, regras, limites) para uma msg de chat. O model e por provedor. */
 async function prepareChat(
   config: WebzapConfig,
   msg: ChatMsg,
-): Promise<{ provider: ProviderModule; creds: ProviderCredentials; req: ChatRequest }> {
-  const { provider, model, creds } = resolveTask(config, msg.task);
-  if (msg.images?.length && !provider.capabilities.includes('vision')) {
-    throw new ProviderError(
-      `${provider.label} não suporta analisar imagens. Use OpenAI, Gemini, Anthropic ou um modelo com visão no OpenRouter.`,
-      provider.id,
-    );
+): Promise<{ chain: ResolvedTask[]; req: Omit<ChatRequest, 'model'> }> {
+  let chain = resolveChain(config, msg.task);
+  if (msg.images?.length) {
+    chain = chain.filter((c) => c.provider.capabilities.includes('vision'));
+    if (!chain.length) {
+      throw new Error(
+        'Nenhum provedor configurado suporta analisar imagens. Use OpenAI, Gemini, Anthropic ou um modelo com visão no OpenRouter.',
+      );
+    }
   }
   const gen = config.generation;
   let messages = msg.messages;
@@ -89,10 +108,8 @@ async function prepareChat(
     messages = [{ role: 'system', content: gen.rules.trim() }, ...messages];
   }
   return {
-    provider,
-    creds,
+    chain,
     req: {
-      model,
       messages,
       maxTokens: Math.max(msg.maxTokens ?? 0, gen.maxTokens),
       temperature: msg.temperature ?? gen.temperature,
@@ -102,30 +119,51 @@ async function prepareChat(
   };
 }
 
+/** Tenta cada elo da cadeia ate um dar certo (failover). Aborto nao faz failover. */
+async function withFailover<T>(
+  chain: ResolvedTask[],
+  fn: (entry: ResolvedTask) => Promise<T>,
+): Promise<T> {
+  let lastErr: unknown = null;
+  for (const entry of chain) {
+    try {
+      return await fn(entry);
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') throw err;
+      lastErr = err;
+    }
+  }
+  throw lastErr ?? new Error('Nenhum provedor disponível.');
+}
+
 async function handle(msg: BgRequest): Promise<BgResponse> {
   const config = await getConfig();
 
   switch (msg.kind) {
     case 'chat': {
-      const { provider, creds, req } = await prepareChat(config, msg);
-      const { text } = await provider.chat(req, creds);
+      const { chain, req } = await prepareChat(config, msg);
+      const { text } = await withFailover(chain, ({ provider, model, creds }) =>
+        provider.chat({ ...req, model }, creds),
+      );
       return { ok: true, text };
     }
 
     case 'transcribe': {
-      const { provider, model, creds } = resolveTask(config, 'transcribe');
-      if (!provider.transcribe) {
-        return { ok: false, error: `${provider.label} não suporta transcrição de áudio.` };
+      const chain = resolveChain(config, 'transcribe').filter((c) => c.provider.transcribe);
+      if (!chain.length) {
+        return { ok: false, error: 'Nenhum provedor de transcrição configurado. Configure OpenAI ou Gemini nas Opções.' };
       }
-      const { text } = await provider.transcribe(
-        {
-          model,
-          audioBase64: msg.audioBase64,
-          mimeType: msg.mimeType,
-          language: config.language.toLowerCase().startsWith('pt') ? 'pt' : undefined,
-          prompt: msg.prompt,
-        },
-        creds,
+      const { text } = await withFailover(chain, ({ provider, model, creds }) =>
+        provider.transcribe!(
+          {
+            model,
+            audioBase64: msg.audioBase64,
+            mimeType: msg.mimeType,
+            language: config.language.toLowerCase().startsWith('pt') ? 'pt' : undefined,
+            prompt: msg.prompt,
+          },
+          creds,
+        ),
       );
       return { ok: true, text };
     }

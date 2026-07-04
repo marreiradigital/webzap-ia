@@ -23,50 +23,71 @@ const CAP_BY_TASK: Record<TaskKind, Capability> = {
   search: 'search',
 };
 
-export function resolveTask(config: WebzapConfig, task: TaskKind): ResolvedTask {
-  const cap = CAP_BY_TASK[task];
+/** Provedores APTOS (habilitados + com chave) na ordem de prioridade configurada:
+ *  principal primeiro, depois as reservas; aptos fora da lista entram no final,
+ *  na ordem do registry. FONTE UNICA da ordem de failover. */
+export function eligibleProviders(config: WebzapConfig): ProviderModule[] {
+  const orderedIds = [
+    ...config.providerOrder.filter((id) => id in PROVIDERS),
+    ...PROVIDER_IDS.filter((id) => !config.providerOrder.includes(id)),
+  ];
+  return orderedIds
+    .map((id) => PROVIDERS[id])
+    .filter((p) => {
+      const cfg = config.providers[p.id];
+      return !!cfg?.enabled && !!cfg.apiKey;
+    });
+}
 
-  // 1) Preferencia explicita do usuario para a tarefa.
+function toResolved(
+  provider: ProviderModule,
+  config: WebzapConfig,
+  task: TaskKind,
+  modelOverride?: string,
+): ResolvedTask {
+  const cfg = config.providers[provider.id]!;
+  return {
+    provider,
+    model: modelOverride || providerModel(provider, cfg, task),
+    creds: { apiKey: cfg.apiKey, baseUrl: cfg.baseUrl },
+  };
+}
+
+/** Cadeia de failover para a tarefa: [preferido/principal, reserva 1, ...].
+ *  O override por tarefa (config.tasks) vem primeiro; o resto segue a ordem
+ *  de prioridade. Lanca erro legivel se nenhum provedor servir. */
+export function resolveChain(config: WebzapConfig, task: TaskKind): ResolvedTask[] {
+  const cap = CAP_BY_TASK[task];
+  const chain: ResolvedTask[] = [];
+
   const pref = config.tasks[task];
-  if (pref) {
+  if (pref && pref.providerId in PROVIDERS) {
     const cfg = config.providers[pref.providerId];
     const provider = getProvider(pref.providerId);
     if (cfg?.enabled && cfg.apiKey && provider.capabilities.includes(cap)) {
-      return {
-        provider,
-        model: pref.model || providerModel(provider, cfg, task),
-        creds: { apiKey: cfg.apiKey, baseUrl: cfg.baseUrl },
-      };
+      chain.push(toResolved(provider, config, task, pref.model));
     }
   }
 
-  // 2) Primeiro provider habilitado, com chave e capaz da tarefa.
-  for (const id of PROVIDER_IDS) {
-    const cfg = config.providers[id];
-    const provider = PROVIDERS[id];
-    if (cfg?.enabled && cfg.apiKey && provider.capabilities.includes(cap)) {
-      return {
-        provider,
-        model: providerModel(provider, cfg, task),
-        creds: { apiKey: cfg.apiKey, baseUrl: cfg.baseUrl },
-      };
-    }
+  for (const provider of eligibleProviders(config)) {
+    if (!provider.capabilities.includes(cap)) continue;
+    if (chain.some((c) => c.provider.id === provider.id)) continue;
+    chain.push(toResolved(provider, config, task));
   }
 
-  throw new Error(humanizeNoProvider(task, cap));
+  if (!chain.length) throw new Error(humanizeNoProvider(task, cap));
+  return chain;
 }
 
-/** Primeiro provider com embeddings configurado (ou null). Usado na busca semantica. */
+export function resolveTask(config: WebzapConfig, task: TaskKind): ResolvedTask {
+  return resolveChain(config, task)[0];
+}
+
+/** Primeiro provider com embeddings na ordem de prioridade (ou null). */
 export function resolveEmbed(config: WebzapConfig): ResolvedTask | null {
-  for (const id of PROVIDER_IDS) {
-    const cfg = config.providers[id];
-    const provider = PROVIDERS[id];
-    if (
-      cfg?.enabled &&
-      cfg.apiKey &&
-      provider.capabilities.includes('embeddings') &&
-      provider.embed
-    ) {
+  for (const provider of eligibleProviders(config)) {
+    if (provider.capabilities.includes('embeddings') && provider.embed) {
+      const cfg = config.providers[provider.id]!;
       return {
         provider,
         model: provider.defaultModels.embed ?? '',
@@ -77,12 +98,11 @@ export function resolveEmbed(config: WebzapConfig): ResolvedTask | null {
   return null;
 }
 
-/** Primeiro provider com TTS (sintese de voz) configurado, ou null. */
+/** Primeiro provider com TTS (sintese de voz) na ordem de prioridade (ou null). */
 export function resolveTts(config: WebzapConfig): ResolvedTask | null {
-  for (const id of PROVIDER_IDS) {
-    const cfg = config.providers[id];
-    const provider = PROVIDERS[id];
-    if (cfg?.enabled && cfg.apiKey && provider.capabilities.includes('tts') && provider.speak) {
+  for (const provider of eligibleProviders(config)) {
+    if (provider.capabilities.includes('tts') && provider.speak) {
+      const cfg = config.providers[provider.id]!;
       return {
         provider,
         model: provider.defaultModels.tts ?? '',

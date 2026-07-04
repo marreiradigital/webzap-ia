@@ -52,7 +52,11 @@ export interface AutoReplySettings {
 
 export interface WebzapConfig {
   providers: Partial<Record<ProviderId, ProviderConfig>>;
-  /** provider + modelo por tarefa. Ausente => usa o primeiro provider apto. */
+  /** Ordem de prioridade dos provedores: [principal, reserva 1, reserva 2, ...].
+   *  Se o principal falhar numa chamada, a proxima reserva apta assume (failover).
+   *  Provedores aptos fora da lista entram no final, na ordem do registry. */
+  providerOrder: ProviderId[];
+  /** provider + modelo por tarefa. Ausente => usa a ordem de prioridade. */
   tasks: Partial<Record<TaskKind, TaskModel>>;
   /** Idioma preferido das respostas/transcricoes. */
   language: string;
@@ -65,6 +69,7 @@ export interface WebzapConfig {
 
 export const DEFAULT_CONFIG: WebzapConfig = {
   providers: {},
+  providerOrder: [],
   tasks: {},
   language: 'pt-BR',
   features: {
@@ -112,6 +117,9 @@ export function normalizeConfig(raw: Partial<WebzapConfig> | null | undefined): 
     autoReply: { byChat: { ...raw?.autoReply?.byChat }, mentions: raw?.autoReply?.mentions ?? '' },
     autoTrain: raw?.autoTrain ?? false,
     providers: { ...raw?.providers },
+    providerOrder: Array.isArray(raw?.providerOrder)
+      ? [...new Set(raw.providerOrder)] // dedupe preservando a ordem
+      : [],
     tasks: { ...raw?.tasks },
   };
 }
