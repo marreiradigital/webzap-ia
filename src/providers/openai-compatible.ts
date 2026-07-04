@@ -8,7 +8,16 @@ interface OpenAiChatResponse {
   choices: Array<{ message?: { content?: string } }>;
 }
 
-function buildBody(req: ChatRequest, stream: boolean) {
+/** Ajustes por modelo/gateway na hora de montar o corpo da requisicao. */
+export interface OpenAiCompatOpts {
+  /** Modelos atuais da OpenAI exigem max_completion_tokens (max_tokens da HTTP 400
+   *  em o-series/gpt-5). O OpenRouter continua com max_tokens (padrao do gateway). */
+  maxTokensParam?: 'max_tokens' | 'max_completion_tokens';
+  /** Modelos de raciocinio (o-series/gpt-5) so aceitam a temperature padrao. */
+  supportsTemperature?: boolean;
+}
+
+function buildBody(req: ChatRequest, stream: boolean, opts: OpenAiCompatOpts = {}) {
   const lastUserIdx = req.messages.map((m) => m.role).lastIndexOf('user');
   const messages = req.messages.map((m, i) => {
     if (i === lastUserIdx && req.images?.length) {
@@ -25,11 +34,12 @@ function buildBody(req: ChatRequest, stream: boolean) {
     }
     return { role: m.role, content: m.content };
   });
+  const maxTokensParam = opts.maxTokensParam ?? 'max_tokens';
   return {
     model: req.model,
     messages,
-    temperature: req.temperature,
-    max_tokens: req.maxTokens,
+    ...(opts.supportsTemperature === false ? {} : { temperature: req.temperature }),
+    [maxTokensParam]: req.maxTokens,
     stream,
   };
 }
@@ -41,13 +51,14 @@ export async function openAiCompatibleChat(
   creds: ProviderCredentials,
   extraHeaders: Record<string, string>,
   signal?: AbortSignal,
+  opts?: OpenAiCompatOpts,
 ): Promise<ChatResult> {
   const base = baseUrl.replace(/\/$/, '');
   const data = await postJson<OpenAiChatResponse>(
     providerId,
     `${base}/chat/completions`,
     { authorization: `Bearer ${creds.apiKey}`, ...extraHeaders },
-    buildBody(req, false),
+    buildBody(req, false, opts),
     signal,
   );
   return { text: (data.choices?.[0]?.message?.content ?? '').trim() };
@@ -61,13 +72,14 @@ export async function openAiCompatibleChatStream(
   extraHeaders: Record<string, string>,
   onDelta: (text: string) => void,
   signal?: AbortSignal,
+  opts?: OpenAiCompatOpts,
 ): Promise<void> {
   const base = baseUrl.replace(/\/$/, '');
   const res = await postForStream(
     providerId,
     `${base}/chat/completions`,
     { authorization: `Bearer ${creds.apiKey}`, ...extraHeaders },
-    buildBody(req, true),
+    buildBody(req, true, opts),
     signal,
   );
   await readSSE(res, (data) => {

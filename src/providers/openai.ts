@@ -17,6 +17,20 @@ interface OpenAiTranscription {
   text: string;
 }
 
+/** Modelos de raciocinio (o-series, gpt-5) rejeitam temperature customizada. */
+function isReasoningModel(model: string): boolean {
+  return /^(o\d|gpt-5)/i.test(model);
+}
+
+/** A API atual da OpenAI exige max_completion_tokens (max_tokens da HTTP 400 nos
+ *  modelos novos); temperature so vai quando o modelo aceita. */
+function compatOpts(model: string) {
+  return {
+    maxTokensParam: 'max_completion_tokens' as const,
+    supportsTemperature: !isReasoningModel(model),
+  };
+}
+
 // OpenAI: chat (chat/completions) + transcricao de audio (audio/transcriptions).
 export const openai: ProviderModule = {
   id: 'openai',
@@ -35,12 +49,12 @@ export const openai: ProviderModule = {
 
   chat(req: ChatRequest, creds: ProviderCredentials, signal): Promise<ChatResult> {
     const base = creds.baseUrl?.replace(/\/$/, '') ?? DEFAULT_BASE;
-    return openAiCompatibleChat('openai', base, req, creds, {}, signal);
+    return openAiCompatibleChat('openai', base, req, creds, {}, signal, compatOpts(req.model));
   },
 
   chatStream(req, creds, onDelta, signal) {
     const base = creds.baseUrl?.replace(/\/$/, '') ?? DEFAULT_BASE;
-    return openAiCompatibleChatStream('openai', base, req, creds, {}, onDelta, signal);
+    return openAiCompatibleChatStream('openai', base, req, creds, {}, onDelta, signal, compatOpts(req.model));
   },
 
   async speak(text, model, creds, signal): Promise<{ base64: string; mimeType: string }> {

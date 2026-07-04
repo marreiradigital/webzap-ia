@@ -140,7 +140,9 @@ async function handle(msg: BgRequest): Promise<BgResponse> {
         {
           model: cfg.chatModel || provider.defaultModels.chat,
           messages: [{ role: 'user', content: 'Responda apenas com: ok' }],
-          maxTokens: 8,
+          // Modelos de raciocinio gastam tokens "pensando" antes de responder;
+          // 8 tokens davam resposta vazia/erro no teste.
+          maxTokens: 128,
         },
         { apiKey: cfg.apiKey, baseUrl: cfg.baseUrl },
       );
