@@ -15,7 +15,14 @@ const TASK_LABELS: Record<TaskKind, string> = {
   explain: 'Explicar mensagem',
   suggest: 'Sugerir resposta',
   transcribe: 'Transcrever áudio',
+  search: 'Pesquisar online',
 };
+
+function neededCap(task: TaskKind): 'chat' | 'transcribe' | 'search' {
+  if (task === 'transcribe') return 'transcribe';
+  if (task === 'search') return 'search';
+  return 'chat';
+}
 
 const FEATURE_LABELS: { key: keyof WebzapConfig['features']; label: string; help: string }[] = [
   { key: 'enabled', label: 'Ativar a extensão', help: 'Interruptor mestre da UI injetada no WhatsApp.' },
@@ -134,6 +141,66 @@ export default function OptionsApp() {
                 />
               </label>
             ))}
+          </div>
+        </section>
+
+        {/* Geracao: limites e regras */}
+        <section className="mb-8">
+          <h2 className="mb-1 text-lg font-semibold">Geração (limites e regras)</h2>
+          <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
+            Também dá para ajustar isso rapidinho pelo painel dentro do WhatsApp (ícone de
+            engrenagem).
+          </p>
+          <div className="space-y-4 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+            <label className="block">
+              <span className="mb-1 flex justify-between text-sm font-medium">
+                <span>Temperatura (criatividade)</span>
+                <span className="text-neutral-500">{cfg.generation.temperature.toFixed(1)}</span>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.1}
+                className="w-full accent-emerald-600"
+                value={cfg.generation.temperature}
+                onChange={(e) =>
+                  patch((c) => ({ ...c, generation: { ...c.generation, temperature: Number(e.target.value) } }))
+                }
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium">Limite de tokens da resposta</span>
+              <input
+                type="number"
+                min={256}
+                max={8192}
+                step={128}
+                className="w-40 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-950"
+                value={cfg.generation.maxTokens}
+                onChange={(e) =>
+                  patch((c) => ({ ...c, generation: { ...c.generation, maxTokens: Number(e.target.value) } }))
+                }
+              />
+              <span className="mt-1 block text-xs text-neutral-500">
+                Aumente se as respostas estiverem sendo cortadas.
+              </span>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium">Regras / instruções personalizadas</span>
+              <textarea
+                rows={3}
+                placeholder="Ex.: responda de forma curta e informal; me chame de Paulo; use bullets quando fizer sentido."
+                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-950"
+                value={cfg.generation.rules}
+                onChange={(e) =>
+                  patch((c) => ({ ...c, generation: { ...c.generation, rules: e.target.value } }))
+                }
+              />
+              <span className="mt-1 block text-xs text-neutral-500">
+                Aplicadas em todas as respostas da IA (resumo, explicar, sugerir, etc.).
+              </span>
+            </label>
           </div>
         </section>
 
@@ -268,9 +335,9 @@ function TaskRow({
   cfg: WebzapConfig;
   onChange: (providerId: ProviderId | '', model: string) => void;
 }) {
-  const needed = task === 'transcribe' ? 'transcribe' : 'chat';
+  const needed = neededCap(task);
   const options = PROVIDER_IDS.filter(
-    (id) => PROVIDERS[id].capabilities.includes(needed as any) && cfg.providers[id]?.enabled,
+    (id) => PROVIDERS[id].capabilities.includes(needed) && cfg.providers[id]?.enabled,
   );
   const current = cfg.tasks[task];
 
