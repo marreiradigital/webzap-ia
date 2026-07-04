@@ -189,7 +189,7 @@ export async function transcribeText(row: HTMLElement): Promise<string> {
   if (!audio) {
     const found = document.querySelectorAll('#main audio').length;
     throw new Error(
-      `Não consegui pegar o áudio (elementos de áudio na tela: ${found}). Toque no play do áudio uma vez para carregá-lo e tente de novo.`,
+      `Não consegui carregar este áudio automaticamente (elementos de áudio na tela: ${found}). Tente de novo; se persistir, toque no play uma vez e repita.`,
     );
   }
   const res = await callBackground({

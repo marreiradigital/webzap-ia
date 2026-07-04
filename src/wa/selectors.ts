@@ -33,6 +33,10 @@ export const SEL = {
     '[data-icon*="ptt" i]',
     'button[aria-label*="udio" i]',
   ],
+  /** Botao de tocar a nota de voz (usado para carregar o blob sem o usuario ouvir). */
+  audioPlayButton: ['[data-icon="audio-play"]', 'button[aria-label*="Reproduzir" i]', 'button[aria-label*="Play" i]'],
+  /** Botao de pausar a nota de voz (para parar via o proprio handler do WhatsApp). */
+  audioPauseButton: ['[data-icon="audio-pause"]', 'button[aria-label*="Pausar" i]', 'button[aria-label*="Pause" i]'],
   /** Imagem enviada (blob), ignorando emojis e figurinhas. */
   imageEl: 'img[src^="blob:"]:not(.emoji)',
   imageIcon: ['[data-icon="media-download"]', '[data-icon*="image" i]'],

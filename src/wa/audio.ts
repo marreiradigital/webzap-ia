@@ -18,12 +18,75 @@ async function fetchBlobAsBase64(url: string): Promise<ExtractedMedia | null> {
   return { base64, mimeType: blob.type || 'application/octet-stream' };
 }
 
-/** Audio de nota de voz. null se o blob ainda nao foi carregado (usuario precisa tocar o play). */
-export async function extractAudio(row: HTMLElement): Promise<ExtractedMedia | null> {
+function audioSrc(row: HTMLElement): string {
   const audio = row.querySelector<HTMLAudioElement>(SEL.audio);
-  const src =
-    audio?.currentSrc || audio?.src || audio?.querySelector('source')?.src || '';
-  const media = await fetchBlobAsBase64(src);
+  return audio?.currentSrc || audio?.src || audio?.querySelector('source')?.src || '';
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Muta qualquer <audio> da linha (chamado repetidamente ate o elemento existir). */
+function muteRowAudio(row: HTMLElement): HTMLAudioElement | null {
+  const a = row.querySelector<HTMLAudioElement>(SEL.audio);
+  if (a) {
+    a.muted = true;
+    a.volume = 0;
+  }
+  return a;
+}
+
+/** Carrega o blob do audio SEM o usuario precisar ouvir: clica no play ja com o
+ *  audio mutado, espera o WhatsApp baixar/decriptar (o blob: aparece), pausa pelo
+ *  proprio botao do WhatsApp e restaura o volume. A ideia da transcricao e
+ *  justamente nao ter que ouvir o audio. */
+export async function ensureAudioLoaded(row: HTMLElement, timeoutMs = 8000): Promise<boolean> {
+  if (audioSrc(row).startsWith('blob:')) return true;
+
+  const playIcon = firstMatch<HTMLElement>(row, SEL.audioPlayButton);
+  const playBtn = (playIcon?.closest('button') as HTMLElement | null) ?? playIcon;
+  if (!playBtn) return false;
+
+  muteRowAudio(row);
+  playBtn.click();
+
+  const deadline = Date.now() + timeoutMs;
+  let ok = false;
+  while (Date.now() < deadline) {
+    const a = muteRowAudio(row); // re-muta a cada volta (o elemento pode nascer depois do click)
+    if (a && audioSrc(row).startsWith('blob:')) {
+      ok = true;
+      break;
+    }
+    await sleep(50);
+  }
+
+  // Para a reproducao pelo controle do proprio WhatsApp (mantem a UI consistente)
+  // e devolve o volume ao normal para quando o usuario quiser ouvir de verdade.
+  const pauseIcon = firstMatch<HTMLElement>(row, SEL.audioPauseButton);
+  ((pauseIcon?.closest('button') as HTMLElement | null) ?? pauseIcon)?.click();
+  const a = row.querySelector<HTMLAudioElement>(SEL.audio);
+  if (a) {
+    try {
+      a.pause();
+      a.currentTime = 0;
+    } catch {
+      /* estado do player pode variar */
+    }
+    a.muted = false;
+    a.volume = 1;
+  }
+  return ok;
+}
+
+/** Audio de nota de voz. Carrega o blob automaticamente (sem tocar audivel) se
+ *  ainda nao foi carregado; null se nem assim der. */
+export async function extractAudio(row: HTMLElement): Promise<ExtractedMedia | null> {
+  if (!audioSrc(row).startsWith('blob:')) {
+    await ensureAudioLoaded(row);
+  }
+  const media = await fetchBlobAsBase64(audioSrc(row));
   if (media && !media.mimeType.startsWith('audio')) media.mimeType = 'audio/ogg';
   return media;
 }
