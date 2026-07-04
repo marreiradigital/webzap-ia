@@ -60,6 +60,10 @@ function findBubble(row: HTMLElement): HTMLElement | null {
 
 type Handler = (anchor: HTMLElement, rect: DOMRect) => void;
 
+// Linhas ja processadas -> botao injetado. Evita re-varrer (getComputedStyle +
+// getBoundingClientRect por div) linhas que ja tem botao vivo a cada mutacao do DOM.
+const processed = new WeakMap<HTMLElement, HTMLElement>();
+
 function isMessageRow(row: HTMLElement): boolean {
   const id = row.querySelector('[data-id]')?.getAttribute('data-id') ?? '';
   if (/^(true|false)_/.test(id)) return true;
@@ -70,7 +74,8 @@ function processBubbles(handler: Handler) {
   const main = document.getElementById('main');
   if (!main) return;
   main.querySelectorAll<HTMLElement>('div[role="row"]').forEach((row) => {
-    if (row.querySelector(`.${BTN_CLASS}`)) return; // ja tem botao
+    if (processed.get(row)?.isConnected) return; // ja tem botao vivo
+    if (row.querySelector(`.${BTN_CLASS}`)) return; // ja tem botao (fallback)
     if (!isMessageRow(row)) return;
     const bubble = findBubble(row);
     if (!bubble) return;
@@ -87,6 +92,7 @@ function processBubbles(handler: Handler) {
       handler(bubble, btn.getBoundingClientRect());
     });
     bubble.appendChild(btn);
+    processed.set(row, btn);
   });
 }
 

@@ -170,7 +170,7 @@ export default function Panel({
 
         {!isSuggest &&
           session?.display.map((turn, i) => (
-            <TurnView key={i} turn={turn} onCopy={onCopy} />
+            <TurnView key={i} turn={turn} onCopy={stableCopy} />
           ))}
 
         {data.loading && (

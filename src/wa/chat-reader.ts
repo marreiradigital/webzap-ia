@@ -8,7 +8,9 @@ import type { ChatContext } from './types';
 export function readHeaderTitle(): string | null {
   const el = firstMatch<HTMLElement>(document, SEL.headerTitle);
   if (!el) return null;
-  return (el.getAttribute('title') || el.innerText || '').trim() || null;
+  // textContent (nao innerText): roda em caminho quente (observers) e innerText
+  // forca reflow sincrono a cada chamada.
+  return (el.getAttribute('title') || el.textContent || '').trim() || null;
 }
 
 export function readVisibleChat(): ChatContext | null {
